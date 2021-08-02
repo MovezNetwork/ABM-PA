@@ -1,4 +1,5 @@
 import networkx as nx
+import json
 import numpy as np
 import os
 import pandas as pd
@@ -303,7 +304,7 @@ def get_df_class_children_topology_analysis(graphAll=[],graphGen=[],graphFrd=[],
                
     return list_subgraphs, classdf, childdf
 
-def get_classes_intervention_results(gr=nx.DiGraph(),network=[],model='all',per=[], generateGephiFiles=False, c_list=[],writeToExcel=False,delta=0.1):
+def get_classes_intervention_results():
     
     '''
     
@@ -316,15 +317,34 @@ def get_classes_intervention_results(gr=nx.DiGraph(),network=[],model='all',per=
         generateGephiFiles - should we generate gephi files for all the classes (graphs)
     
     '''
+ 
     start = time.time()
     
-    # [threshold, I_PA] parameters for the diffusion model
-    parameters_all = [0.09420487943939887, 0.005507766256539898]
-    parameters_gen = [0.058781687689926684, 0.0057354077803888695]
-    parameters_friend = [0.042624787704548806, 0.0040999256641623405]
+    gr=nx.DiGraph()
+    c_list=[]
+    
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
+
+        
+    # parameters for the diffusion model [threshold, I_PA] 
+    parameters_all = input_simulation['parameters_all']
+    parameters_gen = input_simulation['parameters_gen']
+    parameters_friend = input_simulation['parameters_friend']
     
     # parameters contagion model
-    delta=delta
+    delta=input_simulation['delta']
+
+    networktypes = input_simulation['network'] 
+    perc = input_simulation['percent'] 
+    model = input_simulation['model'] 
+    generateGephiFiles = input_simulation['generateGephiFiles'] 
+    writeToExcel = input_simulation['writeToExcel'] 
+    class_list = input_simulation['classes']
 
     # Where the results are going to be saved
     classes_results=[]
@@ -335,8 +355,6 @@ def get_classes_intervention_results(gr=nx.DiGraph(),network=[],model='all',per=
     graphAll=[]
     graphGen=[]
     graphFrd=[]   
-    # if list is empty, we want all the classes
-    class_list = c_list if c_list else [67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139]
   
     # create the empty dict with class ID info only
     for classID in class_list:
@@ -381,8 +399,6 @@ def get_classes_intervention_results(gr=nx.DiGraph(),network=[],model='all',per=
             classes_results.append(r_dict)
 
 
-    networktypes= network if network else ['all', 'gen', 'friend']
-    perc= per if per else [10, 15, 20]
     
     dictionaryCreated=False
     
@@ -404,6 +420,7 @@ def get_classes_intervention_results(gr=nx.DiGraph(),network=[],model='all',per=
             graphGen=classes_graph.copy()
         elif label=='friend':
             graphFrd=classes_graph.copy()
+            
         classCounter=0
         numClasses=len(c_list)    
         #per class intervention results
@@ -412,10 +429,7 @@ def get_classes_intervention_results(gr=nx.DiGraph(),network=[],model='all',per=
                 classID=list(subg.nodes(data='class'))[1][1]
                 subg.graph['int']='for max influence'
                 
-#                 print('************************************************************************************************')
-#                 print('Intervention Simulations for CLASS ' + repr(classID))
-#                 print('************************************************************************************************')
-                
+
 #             #loop the classes dictionaries
                 for r_dict in classes_results:
                     if(r_dict['class']==classID):
@@ -430,13 +444,9 @@ def get_classes_intervention_results(gr=nx.DiGraph(),network=[],model='all',per=
 #                     print('Network Type ' + repr(label)+'; Percent' + repr(percent))
 #                     print('Class ID ' + repr(results_dict['class']))
                     classCounter=classCounter+1
-                    
 
-                    #run no intervention
-                    g_no_intervention_dif=subg.copy()
-                    g_no_intervention_con=subg.copy()
-                    
-                    
+
+
                     if(model=='diffusion'):
                         g_no_intervention_dif=diffuse_behavior_PA(graph=g_no_intervention_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
                         results_dict['diffusion']['nointervention'][label][percent]=get_graphs_PA_df_detailed(g_no_intervention_dif)

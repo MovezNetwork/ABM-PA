@@ -263,7 +263,7 @@ def get_df_class_children_topology_analysis(graphAll=[],graphGen=[],graphFrd=[])
             #no subgraphs need to create them
             if not graphAll:
                 graph = generate_network_PA(level_f='',label=label)
-                classes_graph=get_class_graphs(graph.copy(),writeToFile=generateGephiFiles, label=label,c_list=c_list)
+                classes_graph=get_class_graphs(graph.copy())
                 list_subgraphs.extend(classes_graph)
             else:
                 classes_graph=graphAll
@@ -272,7 +272,7 @@ def get_df_class_children_topology_analysis(graphAll=[],graphGen=[],graphFrd=[])
             #no subgraphs need to create them
             if not graphGen:
                 graph = generate_network_PA(level_f='',label=label)
-                classes_graph=get_class_graphs(graph.copy(),writeToFile=generateGephiFiles, label=label,c_list=c_list)
+                classes_graph=get_class_graphs(graph.copy())
                 list_subgraphs.extend(classes_graph)
             else:
                 classes_graph=graphGen
@@ -280,7 +280,7 @@ def get_df_class_children_topology_analysis(graphAll=[],graphGen=[],graphFrd=[])
         elif label=='friend':
             if not graphFrd:
                 graph = generate_network_PA(level_f='',label=label)
-                classes_graph=get_class_graphs(graph.copy(),writeToFile=generateGephiFiles, label=label,c_list=c_list)
+                classes_graph=get_class_graphs(graph.copy())
                 list_subgraphs.extend(classes_graph)
             else:
                 classes_graph=graphFrd
@@ -431,7 +431,7 @@ def get_classes_intervention_results():
             print('Generating Graph...')
             graph = generate_network_PA(level_f='',label=label)
         # generate all subgraphs - each class is represented with its own graph; we can specify the classes IDs we are interested in by filling the list c_list; c_list=[] means we want all classes
-            classes_graph=get_class_graphs(graph.copy(),writeToFile=generateGephiFiles, label=label,c_list=c_list)
+            classes_graph=get_class_graphs(graph.copy())
         else:
             classes_graph=graph.copy()
             
@@ -519,15 +519,15 @@ def get_classes_intervention_results():
 
                             if(model=='diffusion'):
                                 g_model_dif=diffuse_behavior_PA(graph=gr_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                                results_dict['diffusion'][intervention][label][percent]=get_graphs_PA_df_detailed(g_no_intervention_dif)
+                                results_dict['diffusion'][intervention][label][percent]=get_graphs_PA_df_detailed(gr_dif)
                             elif(model=='contagion'):
                                 g_model_con=contagion_model(graph=gr_con, years=1, delta=delta, model='weighted')
-                                results_dict['contagion'][intervention][label][percent]=get_graphs_PA_df_detailed(g_no_intervention_con)
+                                results_dict['contagion'][intervention][label][percent]=get_graphs_PA_df_detailed(gr_con)
                             elif(model=='all'):
                                 g_no_intervention_dif=diffuse_behavior_PA(graph=g_no_intervention_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                                results_dict['diffusion'][intervention][label][percent]=get_graphs_PA_df_detailed(g_no_intervention_dif)
+                                results_dict['diffusion'][intervention][label][percent]=get_graphs_PA_df_detailed(gr_dif)
                                 g_no_intervention_con=contagion_model(graph=g_no_intervention_con, years=1, delta=delta, model='weighted')
-                                results_dict['contagion'][intervention][label][percent]=get_graphs_PA_df_detailed(g_no_intervention_con)
+                                results_dict['contagion'][intervention][label][percent]=get_graphs_PA_df_detailed(gr_con)
 
                     
                     
@@ -843,13 +843,8 @@ def get_all_interventions_per_model_plots(classes_results=[]):
             filename=directory+'/'+'Class'+repr(int(class1['class']))+'_Models.docx'
             document.add_paragraph('Per Model All Intervention | Class ' + repr(int(class1['class'])))
 
-
-
         print('Comparing Models | Class with ID '+  repr(int(class1['class'])))
-
-
         createPlot=False
-
 
         for n in networktypes:
                 for p in perc:
@@ -1084,7 +1079,7 @@ def writeClassesInterventionToExcel(classes_results=[]):
     save_png = input_simulation['save_png']
     create_doc = input_simulation['create_doc']
     
-      test=classes_results
+    test=classes_results
 
  
 

@@ -1,4 +1,4 @@
-
+import json
 import numpy as np
 import random
 import networkx as nx
@@ -65,7 +65,7 @@ def get_class_dictionary(graph, level_f='../',centrality_type='indegree'):
     for c in class_list:
         class_dictionary[c] = []
 
-    centrality_dict, _ = get_subgraphs_centrality(graph,level_f,centrality_type,class_list)
+    centrality_dict, _ = get_subgraphs_centrality(graph,centrality_type)
 
     for node, key in graph.nodes.data('class'):
         class_dictionary[int(key)].append((node,
@@ -142,7 +142,7 @@ def apply_intervention_pal(graph, perc=0.1, level_f='../', criteria='min',debug=
     
     list_selected = []
     class_list=[graph.graph['class']]
-    class_dictionary = get_class_dictionary(graph, level_f,class_list)
+    class_dictionary = get_class_dictionary(graph, level_f)
 
 #     print('------------------------------------------------------------------')
 #     print('Getting {0}% of the nodes'.format(perc))
@@ -194,7 +194,7 @@ def apply_interventions_centrality(graph, perc=0.1, level_f='../', debug=False, 
     list_selected = []
     class_list=[graph.graph['class']]
 
-    class_dictionary = get_class_dictionary(graph, level_f,class_list,centrality_type)
+    class_dictionary = get_class_dictionary(graph, level_f,centrality_type)
 #     print(class_dictionary)
 #     print('------------------------------------------------------------------')
 #     print('Getting {0}% of the nodes for centrality intervention'.format(perc))

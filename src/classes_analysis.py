@@ -11,13 +11,12 @@ from docx.shared import Inches
 import matplotlib.pyplot as plt
 from src.models import diffuse_behavior_PA, contagion_model, get_graphs_PA_df_detailed
 from src.graph import get_empirical,generate_network_PA
-from src.interventions import apply_intervention_random_nodes,apply_intervention_pal
-from src.interventions import apply_interventions_centrality
+from src.interventions_new import apply_intervention
 from scipy.stats import pearsonr
 import seaborn as sns
 from itertools import chain
 
-def get_class_graphs(graph, level_f='', writeToFile=False, label='all', c_list=[]):
+def get_class_graphs(graph):
 
     '''
     
@@ -31,16 +30,27 @@ def get_class_graphs(graph, level_f='', writeToFile=False, label='all', c_list=[
     label - the network type of the input graph.
     
     '''
-    class_list = []
+    
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
+    
+    
+    class_list = input_simulation['classes'] 
+    writeToFile = input_simulation['writeToExcel'] 
+    label = input_simulation['network']
+    label = label[0]
+
+    
 #     if(writeToFile):
 #         directory='output/ClassesSummary/GephiSubgraphs'
 #         if not os.path.exists(directory):
 #             os.makedirs(directory)
     # if list is empty, we want all the classes
-    if not c_list:
-        class_list = [67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139]
-    else:
-        class_list= c_list
+
     
     class_dictionary = {}
 
@@ -216,7 +226,7 @@ def class_network_details(graph):
     return c2,listChildren
     
 
-def get_df_class_children_topology_analysis(graphAll=[],graphGen=[],graphFrd=[],network=[], generateGephiFiles=False, generateExcel=False, c_list=[]):
+def get_df_class_children_topology_analysis(graphAll=[],graphGen=[],graphFrd=[]):
     
     '''
         Return two dataframes suitable for network topology analysis:
@@ -228,11 +238,21 @@ def get_df_class_children_topology_analysis(graphAll=[],graphGen=[],graphFrd=[],
             c_list - list of classes of interest, all classes by default.
             
     '''
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
     
     
-    # if list is empty, we want all the classes
-    class_list = c_list if c_list else [67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139]   
-    networktypes= network if network else ['all', 'gen', 'friend']
+    networktypes = input_simulation['network'] 
+    class_list = input_simulation['classes'] 
+    generateExcel = input_simulation['generateExcel']
+    generateGephiFiles = input_simulation['generateGephiFiles']
+    
+    
+
     list_subgraphs = []
     
     classCounter=0
@@ -341,10 +361,11 @@ def get_classes_intervention_results():
 
     networktypes = input_simulation['network'] 
     perc = input_simulation['percent'] 
-    model = input_simulation['model'] 
+    model = input_simulation['model']
     generateGephiFiles = input_simulation['generateGephiFiles'] 
     writeToExcel = input_simulation['writeToExcel'] 
     class_list = input_simulation['classes']
+    intervention_strategy = input_simulation['intervention_strategy']
 
     # Where the results are going to be saved
     classes_results=[]
@@ -444,222 +465,71 @@ def get_classes_intervention_results():
 #                     print('Network Type ' + repr(label)+'; Percent' + repr(percent))
 #                     print('Class ID ' + repr(results_dict['class']))
                     classCounter=classCounter+1
+                    # looping through intervention strategies
+                    for intervention in intervention_strategy:
+                
+                        if(intervention == 'random'):
+                            if(model=='diffusion'):
+                                g_diffusion_random_list = []
+                                for i in range(100):
+                                    print("Random {0}".format(i), end="\r")
+                                    g_diffusion_random = apply_intervention(subg.copy(), perc = percent/100 , intervention = intervention)
+                                    diffuse_behavior_PA(graph=g_diffusion_random, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
+                                    g_diffusion_random_list.append(get_graphs_PA_df_detailed(g_diffusion_random))
+                                # once you get the list of 100 random runningsm concat it to a single dataframe
+                                res=pd.concat(g_diffusion_random_list)
+                                res=res.groupby(res.index).mean()
+                                results_dict['diffusion'][intervention][label][percent]= res                
+                            elif(model=='contagion'): 
+                                g_contagion_random_list = []
+                                for i in range(100):
+                                    print("Random {0}".format(i), end="\r")
+                                    g_contagion_random = apply_intervention(subg.copy(), perc = percent/100 , intervention = intervention)
+                                    contagion_model(graph=g_contagion_random, years=1, delta=delta, model='original')
+                                    g_contagion_random_list.append(get_graphs_PA_df_detailed(g_contagion_random))   
+                                res=pd.concat(g_contagion_random_list)
+                                res=res.groupby(res.index).mean()
+                                results_dict['contagion'][intervention][label][percent]= res
+                            elif(model=='all'):
+                                g_diffusion_random_list = []
+                                for i in range(100):
+                                    print("Random {0}".format(i), end="\r")
+                                    g_diffusion_random = apply_intervention(subg.copy(), perc = percent/100 , intervention = intervention)
+                                    diffuse_behavior_PA(graph=g_diffusion_random, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
+                                    g_diffusion_random_list.append(get_graphs_PA_df_detailed(g_diffusion_random))
+                                res=pd.concat(g_diffusion_random_list)
+                                res=res.groupby(res.index).mean()
+                                results_dict['diffusion'][intervention][label][percent]= res
+                                g_contagion_random_list = []
+                                for i in range(100):
+                                    print("Random {0}".format(i), end="\r")
+                                    g_contagion_random = apply_intervention(subg.copy(), perc = percent/100 , intervention = intervention)
+                                    contagion_model(graph=g_contagion_random, years=1, delta=delta, model='original')
+                                    g_contagion_random_list.append(get_graphs_PA_df_detailed(g_contagion_random))   
+                                res=pd.concat(g_contagion_random_list)
+                                res=res.groupby(res.index).mean()
+                                results_dict['contagion'][intervention][label][percent]= res
+                        else:
+                            
+                            gr = apply_intervention(subg.copy(), perc = percent/100 , intervention = intervention)
+                            #run no intervention
+                            gr_dif=subg.copy()
+                            gr_con=subg.copy()
 
 
+                            if(model=='diffusion'):
+                                g_model_dif=diffuse_behavior_PA(graph=gr_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
+                                results_dict['diffusion'][intervention][label][percent]=get_graphs_PA_df_detailed(g_no_intervention_dif)
+                            elif(model=='contagion'):
+                                g_model_con=contagion_model(graph=gr_con, years=1, delta=delta, model='weighted')
+                                results_dict['contagion'][intervention][label][percent]=get_graphs_PA_df_detailed(g_no_intervention_con)
+                            elif(model=='all'):
+                                g_no_intervention_dif=diffuse_behavior_PA(graph=g_no_intervention_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
+                                results_dict['diffusion'][intervention][label][percent]=get_graphs_PA_df_detailed(g_no_intervention_dif)
+                                g_no_intervention_con=contagion_model(graph=g_no_intervention_con, years=1, delta=delta, model='weighted')
+                                results_dict['contagion'][intervention][label][percent]=get_graphs_PA_df_detailed(g_no_intervention_con)
 
-                    if(model=='diffusion'):
-                        g_no_intervention_dif=diffuse_behavior_PA(graph=g_no_intervention_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['nointervention'][label][percent]=get_graphs_PA_df_detailed(g_no_intervention_dif)
-                    elif(model=='contagion'):
-                        g_no_intervention_con=contagion_model(graph=g_no_intervention_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['nointervention'][label][percent]=get_graphs_PA_df_detailed(g_no_intervention_con)
-                    elif(model=='all'):
-                        g_no_intervention_dif=diffuse_behavior_PA(graph=g_no_intervention_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['nointervention'][label][percent]=get_graphs_PA_df_detailed(g_no_intervention_dif)
-                        g_no_intervention_con=contagion_model(graph=g_no_intervention_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['nointervention'][label][percent]=get_graphs_PA_df_detailed(g_no_intervention_con)
-
-
-
-                    #run out-degree centrality 
-                    g_outdegree = apply_interventions_centrality(graph=subg.copy(),perc=percent/100,centrality_type='outdegree')
-                    g_outdegree_dif=g_outdegree.copy()
-                    g_outdegree_con=g_outdegree.copy()
                     
-                    if(model=='diffusion'):
-                        g_outdegree_dif=diffuse_behavior_PA(graph=g_outdegree_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['outdegree'][label][percent]= get_graphs_PA_df_detailed(g_outdegree_dif)
-                    elif(model=='contagion'):
-                        g_outdegree_con=contagion_model(graph=g_outdegree_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['outdegree'][label][percent]=get_graphs_PA_df_detailed(g_outdegree_con)
-                    elif(model=='all'):
-                        g_outdegree_dif=diffuse_behavior_PA(graph=g_outdegree_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['outdegree'][label][percent]= get_graphs_PA_df_detailed(g_outdegree_dif)
-                        g_outdegree_con=contagion_model(graph=g_outdegree_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['outdegree'][label][percent]=get_graphs_PA_df_detailed(g_outdegree_con)
-
-                        
-                    #run in-degree centrality 
-                    g_indegree = apply_interventions_centrality(graph=subg.copy(),perc=percent/100,centrality_type='indegree')
-                    g_indegree_dif=g_indegree.copy()
-                    g_indegree_con=g_indegree.copy()
-                    
-                    if(model=='diffusion'):
-                        g_indegree_dif=diffuse_behavior_PA(graph=g_indegree_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['indegree'][label][percent]= get_graphs_PA_df_detailed(g_indegree_dif)
-                    elif(model=='contagion'):
-                        g_indegree_con=contagion_model(graph=g_indegree_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['indegree'][label][percent]=get_graphs_PA_df_detailed(g_indegree_con)
-                    elif(model=='all'):
-                        g_indegree_dif=diffuse_behavior_PA(graph=g_indegree_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['indegree'][label][percent]= get_graphs_PA_df_detailed(g_indegree_dif)
-                        g_indegree_con=contagion_model(graph=g_indegree_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['indegree'][label][percent]=get_graphs_PA_df_detailed(g_indegree_con)    
-                    
-                    #run closeness centrality 
-                    g_closeness = apply_interventions_centrality(graph=subg.copy(),perc=percent/100,centrality_type='closeness')
-                    g_closeness_dif=g_closeness.copy()
-                    g_closeness_con=g_closeness.copy()
-                    
-                    if(model=='diffusion'):
-                        g_closeness_dif=diffuse_behavior_PA(graph=g_closeness_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['closeness'][label][percent]= get_graphs_PA_df_detailed(g_closeness_dif)
-                    elif(model=='contagion'):
-                        g_closeness_con=contagion_model(graph=g_closeness_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['closeness'][label][percent]=get_graphs_PA_df_detailed(g_closeness_con)
-                    elif(model=='all'):
-                        g_closeness_dif=diffuse_behavior_PA(graph=g_closeness_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['closeness'][label][percent]= get_graphs_PA_df_detailed(g_closeness_dif)
-                        g_closeness_con=contagion_model(graph=g_closeness_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['closeness'][label][percent]=get_graphs_PA_df_detailed(g_closeness_con)                        
-                        
-                    #run betweenness centrality 
-                    g_betweenness = apply_interventions_centrality(graph=subg.copy(),perc=percent/100,centrality_type='betweenness')
-                    g_betweenness_dif=g_betweenness.copy()
-                    g_betweenness_con=g_betweenness.copy()
-                    
-                    if(model=='diffusion'):
-                        g_betweenness_dif=diffuse_behavior_PA(graph=g_betweenness_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['betweenness'][label][percent]= get_graphs_PA_df_detailed(g_betweenness_dif)
-                    elif(model=='contagion'):
-                        g_betweenness_con=contagion_model(graph=g_betweenness_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['betweenness'][label][percent]=get_graphs_PA_df_detailed(g_betweenness_con)
-                    elif(model=='all'):
-                        g_betweenness_dif=diffuse_behavior_PA(graph=g_betweenness_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['betweenness'][label][percent]= get_graphs_PA_df_detailed(g_betweenness_dif)
-                        g_betweenness_con=contagion_model(graph=g_betweenness_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['betweenness'][label][percent]=get_graphs_PA_df_detailed(g_betweenness_con)
-
-                    #run maxpal  
-                    g_maxpal = apply_intervention_pal(graph=subg.copy(),perc=percent/100,criteria='max')
-                    g_maxpal_dif=g_maxpal.copy()
-                    g_maxpal_con=g_maxpal.copy()
-                    
-                    if(model=='diffusion'):
-                        g_maxpal_dif=diffuse_behavior_PA(graph=g_maxpal_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['maxpal'][label][percent]= get_graphs_PA_df_detailed(g_maxpal_dif)
-                    elif(model=='contagion'):
-                        g_maxpal_con=contagion_model(graph=g_maxpal_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['maxpal'][label][percent]=get_graphs_PA_df_detailed(g_maxpal_con)
-                    elif(model=='all'):
-                        g_maxpal_dif=diffuse_behavior_PA(graph=g_maxpal_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['maxpal'][label][percent]= get_graphs_PA_df_detailed(g_maxpal_dif)
-                        g_maxpal_con=contagion_model(graph=g_maxpal_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['maxpal'][label][percent]=get_graphs_PA_df_detailed(g_maxpal_con)                        
-#                     #run minpal  
-                    g_minpal = apply_intervention_pal(graph=subg.copy(),perc=percent/100,criteria='min')
-                    g_minpal_dif=g_minpal.copy()
-                    g_minpal_con=g_minpal.copy()
-                    
-                    if(model=='diffusion'):
-                        g_minpal_dif=diffuse_behavior_PA(graph=g_minpal_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['minpal'][label][percent]= get_graphs_PA_df_detailed(g_minpal_dif)
-                    elif(model=='contagion'):
-                        g_minpal_con=contagion_model(graph=g_minpal_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['minpal'][label][percent]=get_graphs_PA_df_detailed(g_minpal_con)
-                    elif(model=='all'):
-                        g_minpal_dif=diffuse_behavior_PA(graph=g_minpal_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                        results_dict['diffusion']['minpal'][label][percent]= get_graphs_PA_df_detailed(g_minpal_dif)
-                        g_minpal_con=contagion_model(graph=g_minpal_con, years=1, delta=delta, model='weighted')
-                        results_dict['contagion']['minpal'][label][percent]=get_graphs_PA_df_detailed(g_minpal_con)                        
-#                     #run high-risk
-#                     g_high_risk = apply_interventions_high_risk(subg.copy(), percent/100)
-#                     g_high_risk.graph['int'] = 'high-risk'
-#                     if(model=='diffusion'):
-#                         diffuse_behavior_PA(graph=g_high_risk, thres_PA=parameters_gen[0], I_PA=parameters_gen[1], years=1)
-#                         results_dict['diffusion']['high_risk'][label][percent]= get_graphs_PA_df_detailed(g_high_risk)
-#                     elif(model=='contagion'):
-#                         contagion_model(graph=g_high_risk, years=1, delta=delta, model='original')
-#                         results_dict['contagion']['high_risk'][label][percent]=get_graphs_PA_df_detailed(g_high_risk)
-#                     elif(model=='all'):
-#                         g_high_risk_cont = g_high_risk.copy()
-#                         diffuse_behavior_PA(graph=g_high_risk, thres_PA=parameters_gen[0], I_PA=parameters_gen[1], years=1)
-#                         results_dict['diffusion']['high_risk'][label][percent]= get_graphs_PA_df_detailed(g_high_risk)            
-#                         contagion_model(graph=g_high_risk_cont, years=1, delta=delta, model='original')
-#                         results_dict['contagion']['high_risk'][label][percent]=get_graphs_PA_df_detailed(g_high_risk_cont)  
-
-
-#                     #run vilnerability
-#                     g_vulnerability = apply_interventions_vulnerability(subg.copy(), percent/100)
-#                     g_vulnerability_dif=g_vulnerability.copy()
-#                     g_vulnerability_con=g_vulnerability.copy()
-#                     if(model=='diffusion'):
-#                         g_vulnerability_dif=diffuse_behavior_PA(graph=g_vulnerability_dif, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-#                         results_dict['diffusion']['vulnerability'][label][percent]= get_graphs_PA_df_detailed(g_vulnerability_dif)
-#                     elif(model=='contagion'):
-#                         g_vulnerability_con=contagion_model(graph=g_vulnerability_con, years=1, delta=delta, model='weighted')
-#                         results_dict['contagion']['vulnerability'][label][percent]=get_graphs_PA_df_detailed(g_vulnerability_con)
-#                     elif(model=='all'):
-                        
-#                         g_vulnerability_dif=diffuse_behavior_PA(graph=g_vulnerability_dif, thres_PA=parameters_gen[0], I_PA=parameters_gen[1], years=1)
-#                         results_dict['diffusion']['vulnerability'][label][percent] = get_graphs_PA_df_detailed(g_vulnerability_dif)            
-#                         g_vulnerability_con=contagion_model(graph=g_vulnerability_con, years=1, delta=delta, model='weighted')
-#                         results_dict['contagion']['vulnerability'][label][percent]=get_graphs_PA_df_detailed(g_vulnerability_con)
-
-#                     #run max influence
-#                     if(model=='diffusion'):
-#                         g_diffusion_max_influence = apply_intervention_max_influence(subg.copy(), percent/100, modeltype='diffusion')
-#                         g_diffusion_max_influence.graph['int'] = 'maxinfluence'
-#                         diffuse_behavior_PA(graph=g_diffusion_max_influence, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-#                         results_dict['diffusion']['optimized'][label][percent]= get_graphs_PA_df_detailed(g_diffusion_max_influence)
-#                     elif(model=='contagion'): 
-#                         g_contagion_max_influence = apply_intervention_max_influence(subg.copy(), percent/100, modeltype='contagion',delta=delta)
-#                         g_contagion_max_influence.graph['int'] = 'maxinfluence'
-#                         contagion_model(graph=g_contagion_max_influence, years=1, delta=delta, model='weighted')
-#                         results_dict['contagion']['optimized'][label][percent]= get_graphs_PA_df_detailed(g_contagion_max_influence)
-#                     elif(model=='all'):
-#                         g_diffusion_max_influence = apply_intervention_max_influence(subg.copy(), percent/100, modeltype='diffusion')
-#                         g_diffusion_max_influence.graph['int'] = 'maxinfluence'
-#                         diffuse_behavior_PA(graph=g_diffusion_max_influence, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-#                         results_dict['diffusion']['optimized'][label][percent]= get_graphs_PA_df_detailed(g_diffusion_max_influence)
-#                         g_contagion_max_influence = apply_intervention_max_influence(subg.copy(), percent/100, modeltype='contagion',delta=delta)
-#                         g_contagion_max_influence.graph['int'] = 'maxinfluence'
-#                         contagion_model(graph=g_contagion_max_influence, years=1, delta=delta, model='weighted')
-#                         results_dict['contagion']['optimized'][label][percent]= get_graphs_PA_df_detailed(g_contagion_max_influence)
-
-                    #run random
-                    if(model=='diffusion'):
-                        g_diffusion_random_list = []
-                        for i in range(100):
-                            print("Random {0}".format(i), end="\r")
-                            g_diffusion_random = apply_intervention_random_nodes(subg.copy())
-                            diffuse_behavior_PA(graph=g_diffusion_random, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                            g_diffusion_random_list.append(get_graphs_PA_df_detailed(g_diffusion_random))
-                        # once you get the list of 100 random runningsm concat it to a single dataframe
-                        res=pd.concat(g_diffusion_random_list)
-                        # this will generate a dataframe of all 100 dataframes so dimensioally it will be 100x365 columns
-                        # group by the index, which is a single day, and get the mean of it.
-                        res=res.groupby(res.index).mean()
-                        results_dict['diffusion']['random'][label][percent]= res                
-                    elif(model=='contagion'): 
-                        g_contagion_random_list = []
-                        for i in range(100):
-                            print("Random {0}".format(i), end="\r")
-                            g_contagion_random = apply_intervention_random_nodes(subg.copy())
-                            contagion_model(graph=g_contagion_random, years=1, delta=delta, model='original')
-                            g_contagion_random_list.append(get_graphs_PA_df_detailed(g_contagion_random))   
-                        res=pd.concat(g_contagion_random_list)
-                        res=res.groupby(res.index).mean()
-                        results_dict['contagion']['random'][label][percent]= res
-                    elif(model=='all'):
-                        g_diffusion_random_list = []
-                        for i in range(100):
-                            print("Random {0}".format(i), end="\r")
-                            g_diffusion_random = apply_intervention_random_nodes(subg.copy())
-                            diffuse_behavior_PA(graph=g_diffusion_random, thres_PA=parameters_all[0], I_PA=parameters_all[1], years=1)
-                            g_diffusion_random_list.append(get_graphs_PA_df_detailed(g_diffusion_random))
-                        res=pd.concat(g_diffusion_random_list)
-                        res=res.groupby(res.index).mean()
-                        results_dict['diffusion']['random'][label][percent]= res
-                        g_contagion_random_list = []
-                        for i in range(100):
-                            print("Random {0}".format(i), end="\r")
-                            g_contagion_random = apply_intervention_random_nodes(subg.copy())
-                            contagion_model(graph=g_contagion_random, years=1, delta=delta, model='original')
-                            g_contagion_random_list.append(get_graphs_PA_df_detailed(g_contagion_random))   
-                        res=pd.concat(g_contagion_random_list)
-                        res=res.groupby(res.index).mean()
-                        results_dict['contagion']['random'][label][percent]= res
                     
                     classes_results[classes_results.index(results_dict)]=results_dict
 
@@ -674,7 +544,7 @@ def get_classes_intervention_results():
 
     
 
-def get_interventions_differences(class_dict={}, model=[], label=[], percent=[], intervention=[],writeToExcel=False):
+def get_interventions_differences(class_dict={}):
     
     '''
     
@@ -686,10 +556,20 @@ def get_interventions_differences(class_dict={}, model=[], label=[], percent=[],
         writeToExcel - Creates an excel with the intervention outcomes' details
     
     '''
-    models = model if model else ['diffusion', 'contagion']
-    networktypes= label if label else ['all', 'gen', 'friend']
-    perc= percent if percent else [10, 15, 20]
-    interventions = intervention if intervention else ['optimized', 'outdegree', 'indegree', 'betweenness', 'closeness', 'high_risk', 'maxpal','minpal','vulnerability', 'random', 'nointervention'] 
+    
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
+    
+    
+    networktypes = input_simulation['network'] 
+    perc = input_simulation['percent'] 
+    m = input_simulation['model']
+    intervention_strategy = input_simulation['intervention_strategy']
+    writeToExcel = input_simulation['writeToExcel']
     
     cdict=class_dict
 
@@ -697,7 +577,6 @@ def get_interventions_differences(class_dict={}, model=[], label=[], percent=[],
     writeClass=False
     
     for c in cdict:
-        for m in models:
             for n in networktypes:
                 for p in perc:
                     writeClass=False
@@ -719,7 +598,7 @@ def get_interventions_differences(class_dict={}, model=[], label=[], percent=[],
                             writeClass=True
                             
                             
-                    for i in interventions:
+                    for i in intervention_strategy:
                         if isinstance(c[m][i][n][p], pd.DataFrame):
                             if  c[m][i][n][p].empty:
                                 print('Empty Dictionary '+ repr(m) + ' '+ repr(i) + ' '+ repr(n)+ ' ' + repr(p))
@@ -773,7 +652,7 @@ def get_interventions_differences(class_dict={}, model=[], label=[], percent=[],
         classdf.to_excel(writer,'InterventionDif')
         writer.save()
                     
-    success_rates=classdf[['ID','perc_indegree','perc_betweenness','perc_closeness','perc_random','perc_maxpal','perc_minpal','perc_nointervention']]
+    success_rates=classdf[['ID','perc_indegree','perc_betweenness','perc_closeness','perc_random','perc_nointervention']]
     # iloc[:, [1,2,3,4,5,6]] -> depends on what you want to have average
     success_rates['perc_sni']=success_rates.iloc[:, [1,2,3]].mean(axis=1)
     success_rates=success_rates.sort_values('perc_sni')
@@ -783,7 +662,7 @@ def get_interventions_differences(class_dict={}, model=[], label=[], percent=[],
     return classdf, success_rates
                                 
     
-def get_intervention_per_child_plots(classes_results=[],save_png=False, create_doc=False, model=[], label=[], percent=[], intervention=[]):    
+def get_intervention_per_child_plots(classes_results=[]):    
 
     '''
     
@@ -795,6 +674,20 @@ def get_intervention_per_child_plots(classes_results=[],save_png=False, create_d
         percent - how much percent of each class to target the intervention at ( 10, 15, 20%)
     
     '''
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
+    
+    
+    networktypes = input_simulation['network'] 
+    perc = input_simulation['percent'] 
+    m = input_simulation['model']
+    interventions = input_simulation['intervention_strategy']
+    save_png = input_simulation['save_png']
+    create_doc = input_simulation['create_doc']
     
     for c in classes_results:
         class1=c
@@ -807,53 +700,50 @@ def get_intervention_per_child_plots(classes_results=[],save_png=False, create_d
             filename=directory+'/'+'Class'+repr(int(class1['class']))+'_Interventions_Detailed_Per_Child.docx'
             document.add_paragraph('All Intervention plots for class ' + repr(int(class1['class'])) + ' with all children')
 
-        models = model if model else ['diffusion', 'contagion','empirical']
-        networktypes= label if label else ['all', 'gen', 'friend']
-        perc= percent if percent else [10, 15, 20]
-        interventions = intervention if intervention else ['optimized', 'outdegree', 'indegree', 'betweenness', 'closeness', 'high_risk', 'maxpal','minpal', 'vulnerability', 'random', 'nointervention']    
+ 
         
 
         print('Plotting data graphs for Class with ID '+  repr(int(class1['class'])))
 
-        for m in models:
-            for n in networktypes:
-                if(m !='empirical'):
-                    for p in perc:
-                        for i in interventions:
-                            if isinstance(class1[m][i][n][p], pd.DataFrame):
-                                if not class1[m][i][n][p].empty:
-                                    ax = class1[m][i][n][p].plot(figsize=((15,10)))
-                                    ax.legend(loc="upper right")
-                                    ax.set_title('Model_Type:'+ repr(m)+ '  Network_Type:' + repr(n) + '  Target' + repr(p)+'%  Intervention:'+ repr(i))
-                                    if create_doc:
-                                        fig =ax.get_figure()
-                                        titlefig=directory +'/'+n.strip('\'')+'_'+m.strip('\'')+'_'+i.strip('\'')+'_'+repr(p)+'.png'
-                                        fig.savefig(titlefig)
-                                        document.add_picture(titlefig, width=Inches(7))
-                                        if not save_png:
-                                            os.remove(titlefig)
 
-                                else:
-                                    print('Class dataframe empty: ' +repr(m)+repr(i)+repr(n)+repr(p))
-                elif(m =='empirical'):
-                    if isinstance(class1['empirical'][n], pd.DataFrame):
-                            if not class1['empirical'][n].empty:
-                                ax = class1['empirical'][n].T.plot(figsize=((15,10)))
+        for n in networktypes:
+            if(m !='empirical'):
+                for p in perc:
+                    for i in interventions:
+                        if isinstance(class1[m][i][n][p], pd.DataFrame):
+                            if not class1[m][i][n][p].empty:
+                                ax = class1[m][i][n][p].plot(figsize=((15,10)))
                                 ax.legend(loc="upper right")
-                                ax.set_title('Model_Type:'+ repr(m)+ '  Network_Type:' + repr(n))
-
+                                ax.set_title('Model_Type:'+ repr(m)+ '  Network_Type:' + repr(n) + '  Target' + repr(p)+'%  Intervention:'+ repr(i))
                                 if create_doc:
                                     fig =ax.get_figure()
-                                    titlefig=directory +'/'+n.strip('\'')+'_'+m.strip('\'')+'.png'
+                                    titlefig=directory +'/'+n.strip('\'')+'_'+m.strip('\'')+'_'+i.strip('\'')+'_'+repr(p)+'.png'
                                     fig.savefig(titlefig)
                                     document.add_picture(titlefig, width=Inches(7))
                                     if not save_png:
                                         os.remove(titlefig)
+
+                            else:
+                                print('Class dataframe empty: ' +repr(m)+repr(i)+repr(n)+repr(p))
+            elif(m =='empirical'):
+                if isinstance(class1['empirical'][n], pd.DataFrame):
+                        if not class1['empirical'][n].empty:
+                            ax = class1['empirical'][n].T.plot(figsize=((15,10)))
+                            ax.legend(loc="upper right")
+                            ax.set_title('Model_Type:'+ repr(m)+ '  Network_Type:' + repr(n))
+
+                            if create_doc:
+                                fig =ax.get_figure()
+                                titlefig=directory +'/'+n.strip('\'')+'_'+m.strip('\'')+'.png'
+                                fig.savefig(titlefig)
+                                document.add_picture(titlefig, width=Inches(7))
+                                if not save_png:
+                                    os.remove(titlefig)
         if create_doc:    
             document.save(filename)
 
         
-def get_intervention_model_comparison_plots(classes_results=[],save_png=False, create_doc=False,model=[], label=[], percent=[], intervention=[]):
+def get_intervention_model_comparison_plots(classes_results=[]):
     
     '''
     
@@ -862,6 +752,20 @@ def get_intervention_model_comparison_plots(classes_results=[],save_png=False, c
     This is outdated - not containing the journal version intervention strategies
     
     '''
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
+    
+    
+    networktypes = input_simulation['network'] 
+    perc = input_simulation['percent'] 
+    m = input_simulation['model']
+    intervention_strategy = input_simulation['intervention_strategy']
+    save_png = input_simulation['save_png']
+    create_doc = input_simulation['create_doc']
     
     for c in classes_results:
         class1=c
@@ -874,11 +778,7 @@ def get_intervention_model_comparison_plots(classes_results=[],save_png=False, c
             filename=directory+'/'+'Class'+repr(int(class1['class']))+'_Model_Comparisons.docx'
             document.add_paragraph('All Intervention plots for class ' + repr(int(class1['class'])) + ' with all children')
 
-        models = model if model else ['diffusion', 'contagion','empirical']
-        networktypes= label if label else ['all', 'gen', 'friend']
-        perc= percent if percent else [10, 15, 20]
-        interventions = intervention if intervention else ['optimized', 'centrality', 'high_risk', 'vulnerability', 'random', 'nointervention']    
-
+    
         print('Comparing Models | Class with ID '+  repr(int(class1['class'])))
 
         for n in networktypes:
@@ -914,7 +814,23 @@ def get_intervention_model_comparison_plots(classes_results=[],save_png=False, c
             document.save(filename)
 
 
-def get_all_interventions_per_model_plots(classes_results=[],save_png=False, create_doc=False,model=[], label=[], percent=[], intervention=[]):
+def get_all_interventions_per_model_plots(classes_results=[]):
+
+    
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
+    
+    
+    networktypes = input_simulation['network'] 
+    perc = input_simulation['percent'] 
+    m = input_simulation['model']
+    interventions = input_simulation['intervention_strategy']
+    save_png = input_simulation['save_png']
+    create_doc = input_simulation['create_doc']
     
     for c in classes_results:
         class1=c
@@ -927,85 +843,81 @@ def get_all_interventions_per_model_plots(classes_results=[],save_png=False, cre
             filename=directory+'/'+'Class'+repr(int(class1['class']))+'_Models.docx'
             document.add_paragraph('Per Model All Intervention | Class ' + repr(int(class1['class'])))
 
-        models = model if model else ['diffusion', 'contagion']
-        networktypes= label if label else ['all', 'gen', 'friend']
-        perc= percent if percent else [10, 15, 20]
-        interventions = intervention if intervention else ['optimized', 'outdegree', 'indegree', 'betweenness', 'closeness', 'high_risk', 'maxpal','minpal', 'vulnerability', 'random', 'nointervention']    
+
 
         print('Comparing Models | Class with ID '+  repr(int(class1['class'])))
 
 
         createPlot=False
 
-        for m in models:
-            for n in networktypes:
-                if(m !='empirical'):
-                    for p in perc:
-                        
-                        plt.figure(figsize=((15,10)))
-                        plt.xlim(0,364)
-                        plt.xlabel('Days')
-                        plt.ylabel('Mean PA')
-                        
-                        if isinstance(class1[m]['optimized'][n][p], pd.DataFrame) and not class1[m]['optimized'][n][p].empty:
 
-                            class1[m]['optimized'][n][p].mean(axis=1).plot(color='red',label=repr(m)+'optimized')
-                            createPlot=True
-                        if isinstance(class1[m]['outdegree'][n][p], pd.DataFrame) and not class1[m]['outdegree'][n][p].empty:    
-                            class1[m]['outdegree'][n][p].mean(axis=1).plot(color='blue',label=repr(m)+'outdegree')
-                            createPlot=True
-                            
-                        if isinstance(class1[m]['indegree'][n][p], pd.DataFrame) and not class1[m]['indegree'][n][p].empty:    
-                            class1[m]['indegree'][n][p].mean(axis=1).plot(color='green',label=repr(m)+'indegree')
-                            createPlot=True  
-                            
-                        if isinstance(class1[m]['betweenness'][n][p], pd.DataFrame) and not class1[m]['betweenness'][n][p].empty:    
-                            class1[m]['betweenness'][n][p].mean(axis=1).plot(color='orange',label=repr(m)+'betweenness')
-                            createPlot=True 
- 
-                        if isinstance(class1[m]['closeness'][n][p], pd.DataFrame) and not class1[m]['closeness'][n][p].empty:    
-                            class1[m]['closeness'][n][p].mean(axis=1).plot(color='purple',label=repr(m)+'closeness')
-                            createPlot=True  
+        for n in networktypes:
+                for p in perc:
 
-                        if isinstance(class1[m]['high_risk'][n][p], pd.DataFrame) and not class1[m]['high_risk'][n][p].empty:
-                            
+                    plt.figure(figsize=((15,10)))
+                    plt.xlim(0,364)
+                    plt.xlabel('Days')
+                    plt.ylabel('Mean PA')
 
-                            class1[m]['high_risk'][n][p].mean(axis=1).plot(color='green',label=repr(m)+'high_risk')
-                            createPlot=True
-                        if isinstance(class1[m]['maxpal'][n][p], pd.DataFrame) and not class1[m]['maxpal'][n][p].empty:
-                            
+                    if isinstance(class1[m]['optimized'][n][p], pd.DataFrame) and not class1[m]['optimized'][n][p].empty:
 
-                            class1[m]['maxpal'][n][p].mean(axis=1).plot(color='pink',label=repr(m)+'maxpal')
-                            createPlot=True
-                        if isinstance(class1[m]['minpal'][n][p], pd.DataFrame) and not class1[m]['minpal'][n][p].empty:
-                            
+                        class1[m]['optimized'][n][p].mean(axis=1).plot(color='red',label=repr(m)+'optimized')
+                        createPlot=True
+                    if isinstance(class1[m]['outdegree'][n][p], pd.DataFrame) and not class1[m]['outdegree'][n][p].empty:    
+                        class1[m]['outdegree'][n][p].mean(axis=1).plot(color='blue',label=repr(m)+'outdegree')
+                        createPlot=True
 
-                            class1[m]['minpal'][n][p].mean(axis=1).plot(color='olive',label=repr(m)+'minpal')
-                            createPlot=True                            
-                        if isinstance(class1[m]['vulnerability'][n][p], pd.DataFrame) and not class1[m]['vulnerability'][n][p].empty:
+                    if isinstance(class1[m]['indegree'][n][p], pd.DataFrame) and not class1[m]['indegree'][n][p].empty:    
+                        class1[m]['indegree'][n][p].mean(axis=1).plot(color='green',label=repr(m)+'indegree')
+                        createPlot=True  
 
-                            class1[m]['vulnerability'][n][p].mean(axis=1).plot(color='yellow',label=repr(m)+'vulnerability')
-                            createPlot=True
-                        if isinstance(class1[m]['nointervention'][n][p], pd.DataFrame) and not class1[m]['nointervention'][n][p].empty:
+                    if isinstance(class1[m]['betweenness'][n][p], pd.DataFrame) and not class1[m]['betweenness'][n][p].empty:    
+                        class1[m]['betweenness'][n][p].mean(axis=1).plot(color='orange',label=repr(m)+'betweenness')
+                        createPlot=True 
 
-                            class1[m]['nointervention'][n][p].mean(axis=1).plot(style='-', linewidth=5, color='black',label=repr(m)+'nointervention')
-                            createPlot=True
+                    if isinstance(class1[m]['closeness'][n][p], pd.DataFrame) and not class1[m]['closeness'][n][p].empty:    
+                        class1[m]['closeness'][n][p].mean(axis=1).plot(color='purple',label=repr(m)+'closeness')
+                        createPlot=True  
 
-                        if create_doc: 
-                            if createPlot:
-                                plt.legend(title='All Interventions '+  repr(int(class1['class']))+'_' + n.strip('\'')+ ' '+m.strip('\'') + '  Target' + repr(p)+'%', loc="upper right")
-                                createPlot=False
-                                titlefig=directory +'/All_Interventions_'+  repr(int(class1['class']))+'_'+n.strip('\'')+'_'+m.strip('\'')+'_'+repr(p)+'.png'
-                                plt.savefig(titlefig)
-                                document.add_picture(titlefig, width=Inches(7))
-                                if not save_png:
-                                    os.remove(titlefig)
+                    if isinstance(class1[m]['high_risk'][n][p], pd.DataFrame) and not class1[m]['high_risk'][n][p].empty:
+
+
+                        class1[m]['high_risk'][n][p].mean(axis=1).plot(color='green',label=repr(m)+'high_risk')
+                        createPlot=True
+                    if isinstance(class1[m]['maxpal'][n][p], pd.DataFrame) and not class1[m]['maxpal'][n][p].empty:
+
+
+                        class1[m]['maxpal'][n][p].mean(axis=1).plot(color='pink',label=repr(m)+'maxpal')
+                        createPlot=True
+                    if isinstance(class1[m]['minpal'][n][p], pd.DataFrame) and not class1[m]['minpal'][n][p].empty:
+
+
+                        class1[m]['minpal'][n][p].mean(axis=1).plot(color='olive',label=repr(m)+'minpal')
+                        createPlot=True                            
+                    if isinstance(class1[m]['vulnerability'][n][p], pd.DataFrame) and not class1[m]['vulnerability'][n][p].empty:
+
+                        class1[m]['vulnerability'][n][p].mean(axis=1).plot(color='yellow',label=repr(m)+'vulnerability')
+                        createPlot=True
+                    if isinstance(class1[m]['nointervention'][n][p], pd.DataFrame) and not class1[m]['nointervention'][n][p].empty:
+
+                        class1[m]['nointervention'][n][p].mean(axis=1).plot(style='-', linewidth=5, color='black',label=repr(m)+'nointervention')
+                        createPlot=True
+
+                    if create_doc: 
+                        if createPlot:
+                            plt.legend(title='All Interventions '+  repr(int(class1['class']))+'_' + n.strip('\'')+ ' '+m.strip('\'') + '  Target' + repr(p)+'%', loc="upper right")
+                            createPlot=False
+                            titlefig=directory +'/All_Interventions_'+  repr(int(class1['class']))+'_'+n.strip('\'')+'_'+m.strip('\'')+'_'+repr(p)+'.png'
+                            plt.savefig(titlefig)
+                            document.add_picture(titlefig, width=Inches(7))
+                            if not save_png:
+                                os.remove(titlefig)
 
         if create_doc:    
             document.save(filename)
 
 
-def get_classes_intervention_comparison_plots(classes_results=[],save_png=False, create_doc=False,model=[], label=[], percent=[], intervention=[]):
+def get_classes_intervention_comparison_plots(classes_results=[]):
     
         
     '''
@@ -1013,6 +925,22 @@ def get_classes_intervention_comparison_plots(classes_results=[],save_png=False,
     Visualizes the comparison between classes intervention success, looking at each intervention stategy separately. Saves the result as an doc file and png images.
     
     '''
+    
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
+    
+    
+    networktypes = input_simulation['network'] 
+    perc = input_simulation['percent'] 
+    m = input_simulation['model']
+    intervention_strategy = input_simulation['intervention_strategy']
+    save_png = input_simulation['save_png']
+    create_doc = input_simulation['create_doc']
+    
     
     if create_doc:
         directory='../output/ClassesSummary'
@@ -1022,128 +950,141 @@ def get_classes_intervention_comparison_plots(classes_results=[],save_png=False,
         filename=directory+'/'+'Classes_Summary.docx'
      
 
-    models = model if model else ['diffusion', 'contagion']
-    networktypes= label if label else ['all', 'gen', 'friend']
-    perc= percent if percent else [10, 15, 20]
-    interventions = intervention if intervention else ['optimized', 'outdegree', 'indegree', 'betweenness', 'closeness', 'high_risk', 'maxpal','minpal', 'vulnerability', 'random', 'nointervention']
-    
+
+
+
+
+
     classCounter=0
     
-    for m in models:
-        for n in networktypes:
-                for p in perc:
-                    for i in interventions:
-                        classCounter=0
-                        sns.set()
-                        sns.set_style("darkgrid")
-                        sns.set_context("talk", rc={"lines.linewidth": 2.5})
+
+    for n in networktypes:
+            for p in perc:
+                for i in intervention_strategy:
+                    classCounter=0
+                    sns.set()
+                    sns.set_style("darkgrid")
+                    sns.set_context("talk", rc={"lines.linewidth": 2.5})
 #                         sns.set_style("darkgrid")
-                        plt.figure(figsize=((16,16)))               
+                    plt.figure(figsize=((16,16)))               
 #                         print('*** | '+ repr(m)+'  | '+ repr(n) + '  | '+ repr(i) + ' | ' +  repr(p) + ' %| ***')
-                        for c in classes_results:
-                            if isinstance(c[m][i][n][p], pd.DataFrame) and not c[m][i][n][p].empty:
-                                
-                                    classCounter=classCounter+1
+                    for c in classes_results:
+                        if isinstance(c[m][i][n][p], pd.DataFrame) and not c[m][i][n][p].empty:
 
-                                    if classCounter==1:
-    #                                     print('****create subplot1****') 
-                                        ax=plt.subplot(221)
-                                        text=""
-                                        if i=="high_risk":
-                                            text='High Risk Intervention Simulation'
-                                        elif i=="outdegree":
-                                            text='Out Degree Intervention Simulation'
-                                        elif i=="indegree":
-                                            text='In Degree Intervention Simulation'
-                                        elif i=="betweenness":
-                                            text='Betweenness Intervention Simulation'
-                                        elif i=="maxpal":
-                                            text='Max PAL Intervention Simulation'
-                                        elif i=="minpal":
-                                            text='Min PAL Intervention Simulation'
-                                        elif i=="closeness":
-                                            text='Closeness Intervention Simulation'
-                                        elif i=="vulnerability":
-                                            text='Vulnerability Intervention Simulation'
-                                        elif i=="nointervention":
-                                            text='No Intervention Simulation' 
-                                        ax.set_title(text)
-                                        plt.xlim(0,364)
-                                        plt.ylim(1.1,2.2)
-                                        plt.xlabel('Days')
-                                        plt.ylabel('Mean PAL')
+                                classCounter=classCounter+1
 
-                                    c[m][i][n][p].mean(axis=1).plot(label='Class '+repr(c['class']))
-    #                                 print('add class'+repr(c['class'])+' to subplot')
+                                if classCounter==1:
+#                                     print('****create subplot1****') 
+                                    ax=plt.subplot(221)
+                                    text=""
+                                    if i=="high_risk":
+                                        text='High Risk Intervention Simulation'
+                                    elif i=="outdegree":
+                                        text='Out Degree Intervention Simulation'
+                                    elif i=="indegree":
+                                        text='In Degree Intervention Simulation'
+                                    elif i=="betweenness":
+                                        text='Betweenness Intervention Simulation'
+                                    elif i=="maxpal":
+                                        text='Max PAL Intervention Simulation'
+                                    elif i=="minpal":
+                                        text='Min PAL Intervention Simulation'
+                                    elif i=="closeness":
+                                        text='Closeness Intervention Simulation'
+                                    elif i=="vulnerability":
+                                        text='Vulnerability Intervention Simulation'
+                                    elif i=="nointervention":
+                                        text='No Intervention Simulation' 
+                                    ax.set_title(text)
+                                    plt.xlim(0,364)
+                                    plt.ylim(1.1,2.2)
+                                    plt.xlabel('Days')
+                                    plt.ylabel('Mean PAL')
 
-                                    if classCounter==6:    
-                                        plt.legend(title='',loc=4)
-                                        print('create legend for subplot1')
-                                        print('****create subplot2****')
+                                c[m][i][n][p].mean(axis=1).plot(label='Class '+repr(c['class']))
+#                                 print('add class'+repr(c['class'])+' to subplot')
+
+                                if classCounter==6:    
+                                    plt.legend(title='',loc=4)
+                                    print('create legend for subplot1')
+                                    print('****create subplot2****')
 #                                         ax=plt.subplot(222)
 #                                         ax.set_title("Title for first plot")
-                                        plt.xlim(0,364)
-                                        plt.ylim(1,2.3)
-                                        plt.xlabel('Days')
-                                        plt.ylabel('Mean PAL')
+                                    plt.xlim(0,364)
+                                    plt.ylim(1,2.3)
+                                    plt.xlabel('Days')
+                                    plt.ylabel('Mean PAL')
 
-                                    if classCounter==7:
-                                        print('****create subplot2****')
-                                        plt.subplot(222)
-                                        plt.xlim(0,364)
-                                        plt.ylim(1,2.3)
-                                        plt.xlabel('Days')
-                                        plt.ylabel('Mean PAL')
-
-
-                                    if classCounter==13:    
-                                        plt.legend(title='', loc=4)
-    #                                     print('create legend for subplot2')
-    #                                     print('****create subplot3****')
-                                        plt.subplot(223)
-                                        plt.xlim(0,364)
-                                        plt.ylim(1,2.3)
-                                        plt.xlabel('Days')
-                                        plt.ylabel('Mean PAL')
-
-    #                                 if classCounter==13:
+                                if classCounter==7:
+                                    print('****create subplot2****')
+                                    plt.subplot(222)
+                                    plt.xlim(0,364)
+                                    plt.ylim(1,2.3)
+                                    plt.xlabel('Days')
+                                    plt.ylabel('Mean PAL')
 
 
-                                    if classCounter==20:    
-    #                                     print('create legend for subplot3')
-                                        plt.legend(title='', loc=4)
-    #                                     print('****create subplot4****')
-                                        plt.subplot(224)
-                                        plt.xlim(0,364)
-                                        plt.ylim(1,2.3)
-                                        plt.xlabel('Days')
-                                        plt.ylabel('Mean PAL')
+                                if classCounter==13:    
+                                    plt.legend(title='', loc=4)
+#                                     print('create legend for subplot2')
+#                                     print('****create subplot3****')
+                                    plt.subplot(223)
+                                    plt.xlim(0,364)
+                                    plt.ylim(1,2.3)
+                                    plt.xlabel('Days')
+                                    plt.ylabel('Mean PAL')
 
-    #                                 if classCounter==19:
+#                                 if classCounter==13:
 
 
-                                    if classCounter==26: 
-    #                                     print('create legend for subplot4')
-                                        plt.legend(title='', loc=4)
+                                if classCounter==20:    
+#                                     print('create legend for subplot3')
+                                    plt.legend(title='', loc=4)
+#                                     print('****create subplot4****')
+                                    plt.subplot(224)
+                                    plt.xlim(0,364)
+                                    plt.ylim(1,2.3)
+                                    plt.xlabel('Days')
+                                    plt.ylabel('Mean PAL')
 
-                                
-                        if create_doc:
+#                                 if classCounter==19:
+
+
+                                if classCounter==26: 
+#                                     print('create legend for subplot4')
+                                    plt.legend(title='', loc=4)
+
+
+                    if create_doc:
 #                                 print('*** GENERATED: | '+ repr(m)+'  | '+ repr(n) + '  | '+ repr(i) + ' | ' +  repr(p) + ' %| ***')
-                                titlefig=directory +'/AllClasses_'+n.strip('\'')+'_'+m.strip('\'')+'_'+ i.strip('\'') + '_'+repr(p)+'.png'
-                                plt.savefig(titlefig)
-                                document.add_picture(titlefig, width=Inches(7))
-                                if not save_png:
-                                    os.remove(titlefig)
-   
+                            titlefig=directory +'/AllClasses_'+n.strip('\'')+'_'+m.strip('\'')+'_'+ i.strip('\'') + '_'+repr(p)+'.png'
+                            plt.savefig(titlefig)
+                            document.add_picture(titlefig, width=Inches(7))
+                            if not save_png:
+                                os.remove(titlefig)
+
     if create_doc:    
         document.save(filename)
         
 def writeClassesInterventionToExcel(classes_results=[]):
-    models = ['diffusion', 'contagion', 'empirical']
-    networktypes=  ['all', 'gen', 'friend']
-    perc= [10, 15, 20]
-    interventions = ['optimized', 'outdegree', 'indegree', 'betweenness', 'closeness', 'high_risk','maxpal','minpal', 'vulnerability', 'random', 'nointervention']
-    test=classes_results
+    
+    
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
+    
+    
+    networktypes = input_simulation['network'] 
+    perc = input_simulation['percent'] 
+    m = input_simulation['model']
+    interventions = input_simulation['intervention_strategy']
+    save_png = input_simulation['save_png']
+    create_doc = input_simulation['create_doc']
+    
+      test=classes_results
 
  
 
@@ -1156,62 +1097,35 @@ def writeClassesInterventionToExcel(classes_results=[]):
         if not os.path.exists(directory):
             os.makedirs(directory)
         filename=directory+'/'+repr(t['class'])+'.xls'
-        for m in models:
-            if m!='empirical':
-                for i in interventions:
-                    for n in networktypes:
-                        for p in perc:
-                            if isinstance(t[m][i][n][p], pd.DataFrame) and not t[m][i][n][p].empty:
-                                # new sheet for each case
-                                sheet=m.strip('\'')+i.strip('\'')+n.strip('\'')+repr(p).strip('\'')
-                                ws = w.add_sheet(sheet)
-                                #loop the dataframe
-                                rowNum=0
-                                colNum=0
-                                # list of column labels in the dataframe = childIDs
-                                col=list(t[m][i][n][p])
-                                colLen=len(col)
-                                #writing the labels in excel sheet
-                                ws.write(rowNum,colNum,'Days')      
-                                for c in col:
-                                    colNum=colNum+1
-                                    ws.write(rowNum,colNum,c)
 
-
-                                for row in t[m][i][n][p].itertuples():
-                                    rowNum=rowNum+1
-                                    #write the day
-                                    ws.write(rowNum,0,row.Index)
-                                    #write the values
-                                    for c in range(1, colLen+1):
-                                        ws.write(rowNum,c,row[c])
-            else:
-                for nn in networktypes:
-                     if isinstance(t['empirical'][nn], pd.DataFrame) and not t['empirical'][nn].empty:
+        for i in interventions:
+            for n in networktypes:
+                for p in perc:
+                    if isinstance(t[m][i][n][p], pd.DataFrame) and not t[m][i][n][p].empty:
                         # new sheet for each case
-                        sheet=m.strip('\'')+nn.strip('\'')
+                        sheet=m.strip('\'')+i.strip('\'')+n.strip('\'')+repr(p).strip('\'')
                         ws = w.add_sheet(sheet)
-                        emp=t[m][nn].T
                         #loop the dataframe
                         rowNum=0
                         colNum=0
                         # list of column labels in the dataframe = childIDs
-                        col=list(emp)
+                        col=list(t[m][i][n][p])
                         colLen=len(col)
                         #writing the labels in excel sheet
-                        ws.write(rowNum,colNum,'Wave')      
+                        ws.write(rowNum,colNum,'Days')      
                         for c in col:
                             colNum=colNum+1
                             ws.write(rowNum,colNum,c)
 
 
-                        for row in emp.itertuples():
+                        for row in t[m][i][n][p].itertuples():
                             rowNum=rowNum+1
                             #write the day
                             ws.write(rowNum,0,row.Index)
                             #write the values
                             for c in range(1, colLen+1):
                                 ws.write(rowNum,c,row[c])
+            
 
         w.save(filename)
 
@@ -1224,8 +1138,14 @@ def allChildrenInClass():
     pp.index = pp.Child_Bosse
     class_df = pp[['cl','child']]
     class_list=class_df['cl'].tolist()
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
     
-    wanted=[67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139]
+    wanted = input_simulation['classes'] 
     class_df=class_df[class_df.cl.isin(wanted)]
     allChildrenClass = pd.DataFrame(columns=['Class','NumChildren'])
     for u in wanted:
@@ -1274,7 +1194,7 @@ def calculate_pvalues(df):
     
 def get_correlations(dct={},model='all'):
     df_interventions=dct
-    net_analysis=pd.ExcelFile('../output/ClassesSummary/networkanalysis_gen.xlsx',sheet_name='Class')
+    net_analysis=pd.ExcelFile('../output/ClassesSummary/networkanalysis_gen.xlsx')
     net_analysis=net_analysis.parse('Class')
     net_analysis=net_analysis[['ID','density','ROutDegreeCentralization','RClosenessCentralization']]
     net_analysis=net_analysis.set_index('ID')
@@ -1614,7 +1534,7 @@ def fancy_heatmap(sr):
     xrows=[1,2,3,4,5,1,2,3,4,5,1,2,3,4,5,1,2,3,4,5,1,2,3,4,5]
     hm=hm.assign(Xrows=xrows)
     df_to_excel(hm, filename='../output/heatmap.xlsx', sheet='heatmap')
-    hm=pd.ExcelFile('../output/heatmap.xlsx',sheet_name='heatmap')
+    hm=pd.ExcelFile('../output/heatmap.xlsx')
     hm=hm.parse('heatmap')
     cls=(np.asarray(hm['ID'])).reshape(5,5)
     perc=(np.asarray(hm['perc_sni'])).reshape(5,5)

@@ -9,8 +9,11 @@ from xlutils.copy import copy
 import os
 from src.models import diffuse_behavior_PA, contagion_model
 
-def get_subgraphs_centrality(graph, level_f='./',centrality_type='indegree',class_list=[67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139]):
+def get_subgraphs_centrality(graph,centrality_type='indegree'):
     
+    input_simulation = json.loads(open('../input/simulation.json').read())
+    class_list = input_simulation['classes']
+
     # Create a dictionary. Keys are the classes, and the values are list of students
     class_dictionary = {}
 
@@ -46,12 +49,17 @@ def get_subgraphs_centrality(graph, level_f='./',centrality_type='indegree',clas
     return cent_dict, list_subgraphs
 
 
-def get_class_dictionary(graph, level_f='../', class_list=[67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139],centrality_type='indegree'):
+def get_class_dictionary(graph, level_f='../',centrality_type='indegree'):
     '''
     Generates the dictionary with BMI and env for each kid per class
     Create a dictionary. Keys are the classes, and the values are list 
         of students
     '''
+    
+    input_simulation = json.loads(open('../input/simulation.json').read())
+    class_list = input_simulation['classes']
+    
+    
     class_dictionary = {}
 
     for c in class_list:
@@ -70,7 +78,22 @@ def get_class_dictionary(graph, level_f='../', class_list=[67, 71, 72, 74, 77, 7
     return class_dictionary
 
 
-def apply_intervention(graph, selected_nodes=[], debug=False):
+def apply_intervention(graph, perc = 0, intervention = '', debug=False):
+    
+    
+    if(intervention == 'outdegree' or intervention == 'indegree' or intervention == 'closeness' or intervention == 'betweenness'):
+        selected_nodes = apply_interventions_centrality(graph,perc,centrality_type = intervention)
+    elif(intervention == 'max'  or intervention == 'min'):
+        selected_nodes = apply_intervention_pal(graph,perc,criteria = intervention)
+    elif(intervention == 'random'):
+        selected_nodes = apply_intervention_random_nodes(graph,perc)
+    elif(intervention == 'highrisk'):
+        selected_nodes = apply_interventions_high_risk(graph,perc)
+    elif(intervention == 'vulnerability'):
+        selected_nodes = apply_interventions_vulnerability(graph,perc)
+    elif(intervention == 'nointervention'):
+        return graph
+    
     '''
     Apply the intervention for the PA
     '''
@@ -82,6 +105,7 @@ def apply_intervention(graph, selected_nodes=[], debug=False):
         graph.nodes()[node]['PA_hist'] = [graph.nodes()[node]['PA']]
         if debug:
             print('Node #{} - new PA: {}'.format(node,graph.nodes[node]['PA']))
+            
     return graph
 
 
@@ -109,9 +133,9 @@ def apply_intervention_random_nodes(graph, perc=0.1, level_f='../', debug=False)
             print('Class {}: #{} nodes'.format(c,num_selected))
             print('{0}'.format(list_selected))
 
-    return apply_intervention(graph, selected_nodes=list_selected)
+    return list_selected
     
-def apply_intervention_pal(graph, perc=0.1, level_f='../', criteria='min',debug=False, class_list=[67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139]):
+def apply_intervention_pal(graph, perc=0.1, level_f='../', criteria='min',debug=False):
     '''
     Random selection of nodes based purely in the percentage
     '''
@@ -137,6 +161,7 @@ def apply_intervention_pal(graph, perc=0.1, level_f='../', criteria='min',debug=
         elif criteria=='min':
             centrality_list.sort(key=lambda tup: tup[1])
             
+            
         # all nodes just for information purposes....
         all_nodes=centrality_list
         all_nodes_id = [item[0] for item in all_nodes]      
@@ -160,9 +185,9 @@ def apply_intervention_pal(graph, perc=0.1, level_f='../', criteria='min',debug=
 #         print('All nodes {0}'.format(all_nodes_id))
 #         print('PAL all nodes {0}'.format(all_nodes_pal))
 
-    return apply_intervention(graph, selected_nodes=list_selected)
+    return list_selected
 
-def apply_interventions_centrality(graph, perc=0.1, level_f='../', debug=False, class_list=[67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139],centrality_type='indegree'):
+def apply_interventions_centrality(graph, perc=0.1, level_f='../', debug=False, centrality_type='indegree'):
     '''
     Select nodes with higher centrality
     '''
@@ -196,132 +221,12 @@ def apply_interventions_centrality(graph, perc=0.1, level_f='../', debug=False, 
         
         selected_nodes_centrality,selected_nodes_id,selected_nodes_pal, selected_nodes_gender = getRandomNodes(num_selected,all_nodes_centrality,all_nodes_id,all_nodes_pal,all_nodes_gender)
         
-        # selected nodes based on the intervention strategy selection
-#         selected_nodes = centrality_list[0:num_selected]        
-#         selected_nodes_id = [item[0] for item in selected_nodes]      
-#         selected_nodes_centrality=[item[1] for item in selected_nodes]
-#         selected_nodes_pal=[item[3] for item in selected_nodes]
-#         selected_nodes_gender=[item[2] for item in selected_nodes]
-
             
         list_selected = list_selected + selected_nodes_id    
-        
-# #         if debug:
-#         print('Centrality measure: ' + centrality_type)
-#         print('Class {}: #{} nodes'.format(c,num_selected))
-#         print('{0}'.format(selected_nodes_id))
-#         print(centrality_type +' centrality selected nodes {0}'.format(selected_nodes_centrality))
-#         print('PAL selected nodes {0}'.format(selected_nodes_pal))
-#         print('Gender selected nodes {0}'.format(selected_nodes_gender))
-#         print('<<Whole class info>>')        
-#         print('{0}'.format(all_nodes_id))
-#         print(centrality_type +' centrality all nodes {0}'.format(all_nodes_centrality))
-#         print('PAL all nodes {0}'.format(all_nodes_pal))
-#         print('Gender all nodes {0}'.format(all_nodes_gender))       
-        
-#         print('************************************')
-        
-        # add new excel file for each class
-        filename='Results/Class'+repr(graph.graph['class'])+'/Nodes'+repr(graph.graph['class'])+'.xls'
-        w = Workbook()
-        
-        if os.path.isfile(filename):
-#             print('old file')
-            rb=open_workbook(filename)
-            sheets=rb.sheet_names()
-            w = copy(rb)
-        else:
-            directory='Results/Class'+repr(graph.graph['class'])
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-            filename=directory+'/Nodes'+repr(graph.graph['class'])+'.xls'
-        
-                
-       
-#         directory='Results/Class'+repr(graph.graph['class'])+
-#         if not os.path.exists(directory):
-#             os.makedirs(directory)
-#         filename=directory+'/Nodes'+repr(graph.graph['class'])+'.xls'
-        
-        # initialize the sheet and sheet size - selected
-        sheet=centrality_type+'_selected'
-        
-#         # check if sheet exists
-#         if sheets and sheet not in sheets:
-        ws = w.add_sheet(sheet)
-        rowLen=num_selected+1
-        columnLabels=['ChildID','PAL','Centrality','Gender']
-        colLen=len(columnLabels)
-        rowNum=0
-        colNum=0
-
-        ws.write(rowNum,colNum,columnLabels[0])      
-        for c in selected_nodes_id:
-            rowNum=rowNum+1
-            ws.write(rowNum,colNum,c)
-
-        colNum=colNum+1
-        rowNum=0
-        ws.write(rowNum,colNum,columnLabels[1])      
-        for c in selected_nodes_pal:
-            rowNum=rowNum+1
-            ws.write(rowNum,colNum,c)        
-
-        colNum=colNum+1
-        rowNum=0
-        ws.write(rowNum,colNum,columnLabels[2])      
-        for c in selected_nodes_centrality:
-            rowNum=rowNum+1
-            ws.write(rowNum,colNum,c)          
-
-        colNum=colNum+1
-        rowNum=0
-        ws.write(rowNum,colNum,columnLabels[3])      
-        for c in selected_nodes_gender:
-            rowNum=rowNum+1
-            ws.write(rowNum,colNum,c)  
-
-
-        # initialize the sheet and sheet size - all
-        sheet=centrality_type+'all'
-#         if sheets and sheet not in sheets:
-        ws = w.add_sheet(sheet)
-        rowLen=len(all_nodes_id)+1
-        columnLabels=['ChildID','PAL','Centrality','Gender']
-        colLen=len(columnLabels)
-        rowNum=0
-        colNum=0
-
-        ws.write(rowNum,colNum,columnLabels[0])      
-        for c in all_nodes_id:
-            rowNum=rowNum+1
-            ws.write(rowNum,colNum,c)
-
-        colNum=colNum+1
-        rowNum=0
-        ws.write(rowNum,colNum,columnLabels[1])      
-        for c in all_nodes_pal:
-            rowNum=rowNum+1
-            ws.write(rowNum,colNum,c)        
-
-        colNum=colNum+1
-        rowNum=0
-        ws.write(rowNum,colNum,columnLabels[2])      
-        for c in all_nodes_centrality:
-            rowNum=rowNum+1
-            ws.write(rowNum,colNum,c)          
-
-        colNum=colNum+1
-        rowNum=0
-        ws.write(rowNum,colNum,columnLabels[3])      
-        for c in all_nodes_gender:
-            rowNum=rowNum+1
-            ws.write(rowNum,colNum,c)
 
         
-        w.save(filename)
-            
-    return apply_intervention(graph, selected_nodes=list_selected)
+
+    return list_selected
 
 
 
@@ -355,7 +260,7 @@ def apply_interventions_high_risk(graph, perc=0.1, level_f='../', debug=False):
             print('Class {}: #{} nodes'.format(c,num_selected))
             print('{0}'.format(selected_nodes))
 
-    return apply_intervention(graph, selected_nodes=list_selected)
+    return list_selected
 
 
 def apply_interventions_vulnerability(graph, perc=0.1, level_f='../', debug=False):
@@ -391,7 +296,7 @@ def apply_interventions_vulnerability(graph, perc=0.1, level_f='../', debug=Fals
             print('Class {}: #{} nodes'.format(c,num_selected))
             print('{0}'.format(selected_nodes))
 
-    return apply_intervention(graph, selected_nodes=list_selected)
+    return list_selected
 
 
 

@@ -1,4 +1,5 @@
 /venv/
+/data
 /notebooks/Results/
 /notebooks/AveragedOutput.xlsx
 /notebooks/graph_gen.gexf

@@ -11,7 +11,7 @@ from docx.shared import Inches
 import matplotlib.pyplot as plt
 from src.models import diffuse_behavior_PA, contagion_model, get_graphs_PA_df_detailed
 from src.graph import get_empirical,generate_network_PA
-from src.interventions_new import apply_intervention
+from src.interventions import apply_intervention
 from scipy.stats import pearsonr
 import seaborn as sns
 from itertools import chain

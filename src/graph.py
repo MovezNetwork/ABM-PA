@@ -124,17 +124,21 @@ def create_agents_PA(graph, level_f='../'):
     return graph
 
 def remove_nodes_PA(graph, level_f='../'):
-    file = open('../class.txt', 'r')
 
     nodes_removed_class = []
     
-    list_classes = [int(line) for line in file]
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
     
-    classes=[67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 
-             122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139]
+    
+    class_list = input_simulation['classes']
     
     for node in graph.nodes():
-        if graph.nodes()[node]['class'] not in classes:
+        if graph.nodes()[node]['class'] not in class_list:
             nodes_removed_class.append(node)
 
     graph.remove_nodes_from(nodes_removed_class)
@@ -202,8 +206,15 @@ def generate_environment(level_f='../'):
     env = env[['Child_Bosse', 'School', 'Class', 'Wave', 'GEN_FAS_computer_R',
                'GEN_FAS_car_R', 'GEN_FAS_vacation_R', 'GEN_FAS_ownroom_R']]
     
-    classes=[67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 
-             122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139]
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
+    
+    
+    classes = input_simulation['classes']
     
     env = env[env['Class'].isin(classes)]
 
@@ -277,15 +288,23 @@ def generate_basic(level_f='../'):
     
     return dict(gender_df), dict(age_df), dict(class_df)
 
-def get_empirical(metric='steps', level_f='../',classes=[67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 
-             122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139]):
+def get_empirical(metric='steps', level_f='../',classes=[]):
     '''
     Get the data for the 4 waves.
     This is based only on steps so far
     '''
     fitbit = pd.read_csv('../data/fitbit.csv', sep=';', header=0)
-#     classes=[67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 
-#              122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139]
+    
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
+    
+    
+    classes = input_simulation['classes']
+    
     fitbit = fitbit[fitbit['Class'].isin(classes)]
     steps_mean_wave = fitbit.groupby(['Child_Bosse', 'Wave']).mean()['Steps_ML_imp1'].reset_index()
     steps_mean_wave.Steps_ML_imp1 = steps_mean_wave.Steps_ML_imp1 * 0.000153
@@ -293,8 +312,7 @@ def get_empirical(metric='steps', level_f='../',classes=[67, 71, 72, 74, 77, 78,
 
     return steps_mean_wave
 
-def get_empirical_bmi(level_f='../',classes=[67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 
-             122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139]):
+def get_empirical_bmi(level_f='../',classes=[]):
     '''
     Get the data for the 4 waves.
     This is based only on steps so far
@@ -304,8 +322,16 @@ def get_empirical_bmi(level_f='../',classes=[67, 71, 72, 74, 77, 78, 79, 81, 83,
     bmi.index = bmi.Child_Bosse
     bmi = bmi['BMI']
     fitbit = pd.read_csv('../data/fitbit.csv', sep=';', header=0)
-#     classes=[67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 
-#              122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139]
+    try:
+        input_simulation = json.loads(open('../input/simulation.json').read())
+    except Exception as ex:
+        print('simulation.json does not exist!')
+        print(ex)
+        return
+    
+    
+    classes = input_simulation['classes']
+    
     fitbit = fitbit[fitbit['Class'].isin(classes)]
     steps_mean_wave = fitbit.groupby(['Child_Bosse', 'Wave']).mean()['Steps_ML_imp1'].reset_index()
     steps_mean_wave.Steps_ML_imp1 = steps_mean_wave.Steps_ML_imp1 * 0.000153

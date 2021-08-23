@@ -1,5 +1,5 @@
 '''
-Simplified creation of the network for the simulation of PA
+Methods related to graph creation using NetworkX library. The graph represents the school class social networks.
 '''
 
 
@@ -10,32 +10,20 @@ import os
 import pandas as pd
 import re
 import random
-'''
-        Generate a social network graph based on the data
-        
-        generate_network_PA calls:
-            *codes.network.create_connections
-            
-            *create_agents_PA calls:
-                **generate_PA
-                **generate_basic
-                **generate_environment
-                **generate_BMI
-                
-            *remove_nodes_PA
-'''
+
 def generate_network_PA(level_f='../', label=None, formula_s=None, debug=False):
     '''
-    label and formula_s are variables for the create_connections(). 
-    They are basically the file to read (label) or the string formula to customize the calculation of the edges.
+    Calls methods for creation of the graph and saves the graph as gexf file.
+    
+    Args:
+        level_f (str): filesystem level
+        label (str): label of the graph- gen, all or friends graph
+        formula_s (str): string formula to customize the calculation of the edges
+        debug (boolean): debug related messages. default is false
 
-    background = pd.read_csv(data_f+'background.csv', sep=';', header=0)
-    bmi = pd.read_csv(data_f+'bmi.csv', sep=';', header=0)
-    fitbit = pd.read_csv(data_f+'fitbit.csv', sep=';', header=0)
-    nominations = pd.read_csv(data_f+'nominations.csv', sep=';', header=0)
-    nominations.columns = ['class', 'child', 'wave', 'variable', 'class_nominated', 'nominated', 'same_class']
-    pp = pd.read_csv(data_f+'pp.csv', sep=';', header=0)
-    pp['sum_waves'] = pp.parti_W1+pp.parti_W2+pp.parti_W3+pp.parti_W4
+    Returns:
+    Graph: NetworkX graph representing school classes network.
+    
     '''
     print('###############################################################')
     print('Graph generation starting!')
@@ -76,17 +64,17 @@ def generate_network_PA(level_f='../', label=None, formula_s=None, debug=False):
     return graph
 
 def create_agents_PA(graph, level_f='../'):
+    
     '''
-    Each agent need the following information:
-        |-- gender
-        |-- age
-        |-- class
-        |-- height
-        |-- weight
-        |-- EI
-        |-- EE
-        |-- Env
-        |-- PA
+    Calls methods for customizing the graph nodes, with information like gender, age, class, height, weight, environment, BMI. 
+    
+    Args:
+        level_f (str): filesystem level
+        graph (Graph): The input school graph
+
+    Returns:
+    Graph: Updated graph with customized nodes.
+    
     '''
     
     PA_dict = generate_PA(metric='steps', level_f=level_f)
@@ -124,6 +112,19 @@ def create_agents_PA(graph, level_f='../'):
     return graph
 
 def remove_nodes_PA(graph, level_f='../'):
+    
+    '''
+    Remove the nodes that are not part of the classes of interest.
+    
+    Args:
+        level_f (str): filesystem level
+        graph (Graph): The input school graph
+
+    Returns:
+    Graph: Updated graph with (potentially) removed nodes.
+    
+    '''
+        
 
     nodes_removed_class = []
     
@@ -150,6 +151,33 @@ def remove_nodes_PA(graph, level_f='../'):
 
 
 def generate_PA(metric='steps', level_f='../'):
+    
+    
+    
+    '''
+    Generate physical activity value for nodes.
+    
+    Args:
+        level_f (str): filesystem level
+        metric (str): physical activity metrics to use. default is number of steps.
+
+    Returns:
+    dictionary: Dictionary with average steps per child and per wave.
+    
+    '''
+    
+
+    fitbit = pd.read_csv('../data/fitbit.csv', sep=';', header=0)
+    
+    steps_mean_wave = fitbit.groupby(['Child_Bosse', 'Wave']).mean()['Steps_ML_imp1'].reset_index()
+    steps_mean_wave.Steps_ML_imp1 = steps_mean_wave.Steps_ML_imp1 * 0.000153
+    steps_mean_wave = steps_mean_wave.pivot(index='Child_Bosse', columns='Wave')['Steps_ML_imp1']
+
+    return dict(steps_mean_wave[1])
+
+
+
+    
     '''
     NetworkClass:       Does the class reach the treshold of >60% of participation
     Steps:              observed mean daily steps count per week    
@@ -165,14 +193,7 @@ def generate_PA(metric='steps', level_f='../'):
         |-- dictionary with steps or minutes
 
     '''
-    fitbit = pd.read_csv('../data/fitbit.csv', sep=';', header=0)
     
-    steps_mean_wave = fitbit.groupby(['Child_Bosse', 'Wave']).mean()['Steps_ML_imp1'].reset_index()
-    steps_mean_wave.Steps_ML_imp1 = steps_mean_wave.Steps_ML_imp1 * 0.000153
-    steps_mean_wave = steps_mean_wave.pivot(index='Child_Bosse', columns='Wave')['Steps_ML_imp1']
-
-    return dict(steps_mean_wave[1])
-
     '''
     # Mean of minutes from moderate to vigorous activity and steps (all imputed)
     minutes_MVPA_df = fitbit.groupby(['Child_Bosse']).mean()['Minutes_MVPA_ML_imp1']
@@ -194,14 +215,18 @@ def generate_PA(metric='steps', level_f='../'):
 
 
 def generate_environment(level_f='../'):
-    '''
-    The environment variable is going to be generated randomly by now, but should be replaced later
     
-    * Computer: [0, 1, 2, 3]
-    * Car:      [0, 1, 2]
-    * Vacation: [0, 1, 2, 3]
-    * Own room: [0, 1]
     '''
+    Generate environment value for nodes. Combination of different questionnaire responses for owning computers, car, ownroom or allowing summer vacation.
+    
+    Args:
+        level_f (str): filesystem level
+
+    Returns:
+    dictionary: Dictionary with environment score per child.
+    
+    '''
+
     env = pd.read_csv('../data/environment.csv', sep=';', header=0)
     env = env[['Child_Bosse', 'School', 'Class', 'Wave', 'GEN_FAS_computer_R',
                'GEN_FAS_car_R', 'GEN_FAS_vacation_R', 'GEN_FAS_ownroom_R']]
@@ -237,11 +262,19 @@ def generate_environment(level_f='../'):
 
 
 def generate_bmi(level_f='../'):
+    
+        
     '''
-    Created in Mar 5
-    Generate the BMI that is going to be used to classify the children 
-    in an obesity scale.
+    Generate BMI value for nodes.
+    
+    Args:
+        level_f (str): filesystem level
+
+    Returns:
+    dictionary: Dictionary with BMI score per child.
+    
     '''
+
     bmi = pd.read_csv('../data/bmi.csv', sep=';', header=0)
     bmi = bmi[bmi.Wave==2][['Child_Bosse', 'BMI']]
     bmi.index = bmi.Child_Bosse
@@ -250,10 +283,18 @@ def generate_bmi(level_f='../'):
     return dict(bmi)
 
 def fix_float64(orig_dict):
+    
     '''
-    This function converts the numpy.float64 values from a dictionary to native float type.
-    {k: np.asscalar(item) for k, item in orig_dict.items()}
+    Helper method converts the numpy.float64 values from a dictionary to native float type.
+    
+    Args:
+        level_f (str): filesystem level
+
+    Returns:
+    dictionary: Dictionary with updated float values. 
     '''
+    
+
     new_dict = {}
     for k, item in orig_dict.items():
         try:    
@@ -264,9 +305,16 @@ def fix_float64(orig_dict):
     return new_dict
 
 def generate_basic(level_f='../'):
+        
     '''
-    Static values. Age changes a little.
-    For the class, we take Y2. In case the data is missing, we use Y1 from pp data frame.
+    Generate gender, age and class information per node.
+    
+    Args:
+        level_f (str): filesystem level
+
+    Returns:
+    dictionary: Dictionary with gender, age and class information per child.
+    
     '''
     background = pd.read_csv('../data/background.csv', sep=';', header=0)
     pp = pd.read_csv('../data/pp.csv', sep=';', header=0)
@@ -290,38 +338,19 @@ def generate_basic(level_f='../'):
 
 def get_empirical(metric='steps', level_f='../',classes=[]):
     '''
-    Get the data for the 4 waves.
-    This is based only on steps so far
+    Get empirical physical activity data. 
+    
+    Args:
+        level_f (str): filesystem level
+        metric (str): physical activity metrics to use. default is number of steps.
+        classes (array): list of class ids
+
+    Returns:
+    dataframe: physical activity data (steps) per child and wave.
+    
     '''
     fitbit = pd.read_csv('../data/fitbit.csv', sep=';', header=0)
     
-    try:
-        input_simulation = json.loads(open('../input/simulation.json').read())
-    except Exception as ex:
-        print('simulation.json does not exist!')
-        print(ex)
-        return
-    
-    
-    classes = input_simulation['classes']
-    
-    fitbit = fitbit[fitbit['Class'].isin(classes)]
-    steps_mean_wave = fitbit.groupby(['Child_Bosse', 'Wave']).mean()['Steps_ML_imp1'].reset_index()
-    steps_mean_wave.Steps_ML_imp1 = steps_mean_wave.Steps_ML_imp1 * 0.000153
-    steps_mean_wave = steps_mean_wave.pivot(index='Child_Bosse', columns='Wave')['Steps_ML_imp1']
-
-    return steps_mean_wave
-
-def get_empirical_bmi(level_f='../',classes=[]):
-    '''
-    Get the data for the 4 waves.
-    This is based only on steps so far
-    '''
-    bmi = pd.read_csv('../data/bmi.csv', sep=';', header=0)
-    bmi = bmi[bmi.Wave==2][['Child_Bosse', 'BMI']]
-    bmi.index = bmi.Child_Bosse
-    bmi = bmi['BMI']
-    fitbit = pd.read_csv('../data/fitbit.csv', sep=';', header=0)
     try:
         input_simulation = json.loads(open('../input/simulation.json').read())
     except Exception as ex:
@@ -341,44 +370,25 @@ def get_empirical_bmi(level_f='../',classes=[]):
 
 
 def create_connections(graph, formula_s=None, label=None, waves='all', level_f='../'):
+    
     '''
-    graph: DiGraph
-    formula_s: string containing a json with the weights for each variable
-    --------------------------------------------------------------
-    Network connections are based on influence from the kids on each other. The variables used are:
-    --------------------------------------------------------------
-    Health
-    --------------------------------------------------------------
-    SOC_DI_Com_network: (1 item) with who participants talk about what they eat and drink
-    SOC_DI_Impression_management: (1 item) who participants want to come across as somebody who eats and drinks healthy
-    SOC_Di_Modelling_reversed: (1 item) who are examples in eating & drinking healthy
-    SOC_DI_Modelling: (1 item) who are eating & drinking products participants also want to eat or drink
-    --------------------------------------------------------------
-    Leadership and influence
-    --------------------------------------------------------------
-    SOC_GEN_Advice: (1 item) to who participants go to for advice
-    SOC_GEN_Friendship: (1 item) with who participants are friends
-    SOC_GEN_INNOV: (1 item) who most often have the newest products & clothes
-    SOC_GEN_Leader: (1 item) who participants consider as leaders 
-    SOC_GEN_Respect: (1 item) who participants respect
-    SOC_GEN_Social_Facilitation: (1 item) with who participants hang out / have contact with
-    SOC_GEN_Want2B: (1 item) who participants want to be like
-    SOC_ME_Com_network: (1 item) with who participants talk about what they see on television  or internet 
-    SOC_PA_Com_network: (1 item) with who participants talk about physical activity and sports
-    SOC_PA_Impression_management: (1 item) for who participants want to come across as somebody who is doing sports often
-    SOC_PA_Modelling_reversed: (1 item) for who participants are examples in sports
-    SOC_PA_Modelling: (1 item) who are exercising in a way participants also want to exercise
-    --------------------------------------------------------------
-    formula should be a dictionary with the variables used and the weights for each of them. For instance:
-    {
-        SOC_GEN_Advice: 1,
-        SOC_GEN_Friendship: 1,
-        SOC_GEN_Leader: 1,
-        SOC_GEN_INNOV: 0.5,
-        SOC_DI_Com_network: 0.5,
-        SOC_Di_Modelling_reversed: 0.2
-    }
+    Create graph's weights between edges depending on the chosen formula. 
+    The connections are created and weighted based on questionnaire responses. 
+    Use all (the whole set of questions), gen (only the general questions) or friends (only the friends questions) to create the weights
+    
+    Args:
+        graph (Graph): input graph
+        level_f (str): filesystem level
+        label (str): label of the graph- gen, all or friends graph
+        formula_s (str): string formula to customize the calculation of the edges
+        waves (str): waves of data to include. 
+
+    Returns:
+    Graph: updated graph with weighted connections.
+    
     '''
+        
+
     # List with all the participants in the experiment
     pp = pd.read_csv('../data/pp.csv', sep=';', header=0)
     list_participants = list(pp.Child_Bosse)
@@ -460,9 +470,20 @@ if __name__ == "__main__":
     graph = generate_network()
 
 def get_bmi_cat(gender,age,bmi):
+    
     '''
-    Calculating the BMI category based on gender, age and BMI value
+    Calculating the BMI category based on gender, age and BMI value 
+    
+    Args:
+        gender (Integer): person gender 
+        age (Integer): person age 
+        bmi (Integer): person BMI 
+
+    Returns:
+    Integer: BMI category value
+    
     '''
+
 
     if (bmi == -1) or (gender == -1) or (age == -1) :
         return np.nan

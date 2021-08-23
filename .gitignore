@@ -1,4 +1,5 @@
 /venv/
+/documentation/_build
 /data
 /notebooks/Results/
 /notebooks/AveragedOutput.xlsx

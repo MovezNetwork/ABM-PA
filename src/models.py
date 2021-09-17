@@ -1,3 +1,7 @@
+'''
+Methods related to models.
+'''
+
 from src.graph import generate_network_PA,get_empirical
 from sklearn.metrics import mean_absolute_error
 import pandas as pd

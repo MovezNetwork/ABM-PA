@@ -1,3 +1,7 @@
+'''
+Methods related to interventions.
+'''
+
 import json
 import numpy as np
 import random
@@ -10,7 +14,19 @@ import os
 from src.models import diffuse_behavior_PA, contagion_model
 
 def get_subgraphs_centrality(graph,centrality_type='indegree'):
+    '''
+    Calls methods for creation of the graph and saves the graph as gexf file.
     
+    Args:
+        level_f (str): filesystem level
+        label (str): label of the graph- gen, all or friends graph
+        formula_s (str): string formula to customize the calculation of the edges
+        debug (boolean): debug related messages. default is false
+
+    Returns:
+    Graph: NetworkX graph representing school classes network.
+    
+    '''
     input_simulation = json.loads(open('../input/simulation.json').read())
     class_list = input_simulation['classes']
 
@@ -79,7 +95,19 @@ def get_class_dictionary(graph, level_f='../',centrality_type='indegree'):
 
 
 def apply_intervention(graph, perc = 0, intervention = '', debug=False):
+    '''
+    Calls methods for creation of the graph and saves the graph as gexf file.
     
+    Args:
+        level_f (str): filesystem level
+        label (str): label of the graph- gen, all or friends graph
+        formula_s (str): string formula to customize the calculation of the edges
+        debug (boolean): debug related messages. default is false
+
+    Returns:
+    Graph: NetworkX graph representing school classes network.
+    
+    '''    
     
     if(intervention == 'outdegree' or intervention == 'indegree' or intervention == 'closeness' or intervention == 'betweenness'):
         selected_nodes = apply_interventions_centrality(graph,perc,centrality_type = intervention)
@@ -374,7 +402,19 @@ def apply_intervention_max_influence(graph, perc=0.1, years=1, thres_PA = 0.2, I
 
 
 def getRandomNodes(numNodes,valueArray,idArray,palArray,genderArray):
+    '''
+    Calls methods for creation of the graph and saves the graph as gexf file.
     
+    Args:
+        level_f (str): filesystem level
+        label (str): label of the graph- gen, all or friends graph
+        formula_s (str): string formula to customize the calculation of the edges
+        debug (boolean): debug related messages. default is false
+
+    Returns:
+    Graph: NetworkX graph representing school classes network.
+    
+    '''   
     finalindices=[]
     sel=numNodes
     cent=valueArray
@@ -437,6 +477,19 @@ def getRandomNodes(numNodes,valueArray,idArray,palArray,genderArray):
 
 
 def get_max_indices(vals):
+    '''
+    Calls methods for creation of the graph and saves the graph as gexf file.
+    
+    Args:
+        level_f (str): filesystem level
+        label (str): label of the graph- gen, all or friends graph
+        formula_s (str): string formula to customize the calculation of the edges
+        debug (boolean): debug related messages. default is false
+
+    Returns:
+    Graph: NetworkX graph representing school classes network.
+    
+    '''
     maxval = None
     index = 0
     indices = []

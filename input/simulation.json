@@ -2,6 +2,7 @@
     "model": "diffusion",
     "network": ["gen"],
     "percent": [15],
+    "waves" : "all",
     "delta": 0.1,
     "writeToExcel" : true,
     "generateGephiFiles" : true,
@@ -11,5 +12,7 @@
     "parameters_gen": [0.058781687689926684, 0.0057354077803888695],
     "intervention_strategy" : ["nointervention","outdegree", "indegree", "closeness", "betweenness", "random"],
     "create_doc" : true,
-    "save_png": true
+    "save_png": true,
+    "thres_PA": 0.2,
+    "I_PA": 0.00075
 }

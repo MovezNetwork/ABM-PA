@@ -15,7 +15,7 @@ class DiffusionModel(Model):
         self.input_args = input_args
       
     
-    def execute(self, graph,t):
+    def execute(self, graph, t):
         if t == 0:
             # Initiate hist vectors
             for node in graph.nodes():
@@ -83,6 +83,7 @@ class DiffusionModel(Model):
 
         return graph   
 
+
     def get_empirical_pa_data():
         '''
         Get empirical physical activity data. 
@@ -90,6 +91,7 @@ class DiffusionModel(Model):
         Returns:
         dataframe: physical activity data (steps) per child and wave.
 
+        TODO: method not complete
         '''
         fitbit = pd.read_csv('../data/fitbit.csv', sep=';', header=0)
 
@@ -110,8 +112,11 @@ class DiffusionModel(Model):
 
         return steps_mean_wave
 
+
     def validation(self,df_interventions={}):
-        
+        '''
+        TODO: method not complete.
+        '''
         classes = self.input_args['classes']
         df_interventions = df_interventions
         emp_all=get_empirical_pa_data()[4]

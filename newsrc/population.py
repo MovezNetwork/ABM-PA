@@ -11,15 +11,24 @@ import random
 
 
 class Population:
+
+
         def __init__(self, name, input_args):
+            '''
+            TODO: intervention methods in seperate module ("networkInterventions")? The only argument the methods need is self.get_class_dictionary(graph); one of my remarks is to store this, and call in simulation.
+
+            TODO: set_nodes before set_edges? Perhaps rename set_nodes to "create_population". This is in line with our module name; in the description we can
+            say that we use graph datastructure
+
+            TODO: Methods that start with generate (e.g. generate_basic) rename to assign (assign_basic)?
+            '''
             self.name = name
             self.input_args = input_args
             self.graph = self.graph_set_edges(nx.DiGraph())
             self.graph = self.graph_set_nodes(self.graph)
             self.graph = self.graph_remove_nodes(self.graph)
 
-            
-            
+
         def graph_set_edges(self,graph):
     
             '''
@@ -165,14 +174,10 @@ class Population:
                     graph (Graph): The input school graph
 
                 Returns:
-                Graph: Updated graph with (potentially) removed nodes.
-
+                    Graph: Updated graph with (potentially) removed nodes.
                 '''
 
-
                 nodes_removed_class = []
-
-
                 class_list = self.input_args['classes']
 
                 for node in graph.nodes():
@@ -180,15 +185,12 @@ class Population:
                         nodes_removed_class.append(node)
 
                 graph.remove_nodes_from(nodes_removed_class)
-
-
                 print('Nodes removed for not being in the selected classes: #', len(nodes_removed_class))
+
                 return graph
             
             
         def generate_PA(self,metric='steps'):
-
-
 
             '''
             Generate physical activity value for nodes.
@@ -197,10 +199,8 @@ class Population:
                 metric (str): physical activity metrics to use. default is number of steps.
 
             Returns:
-            dictionary: Dictionary with average steps per child and per wave.
-
+                dictionary: Dictionary with average steps per child and per wave.
             '''
-
 
             fitbit = pd.read_csv('../data/fitbit.csv', sep=';', header=0)
 
@@ -217,16 +217,13 @@ class Population:
             '''
             Generate environment value for nodes. Combination of different questionnaire responses for owning computers, car, ownroom or allowing summer vacation.
 
-        
             Returns:
-            dictionary: Dictionary with environment score per child.
-
+                dictionary: Dictionary with environment score per child.
             '''
 
             env = pd.read_csv('../data/environment.csv', sep=';', header=0)
             env = env[['Child_Bosse', 'School', 'Class', 'Wave', 'GEN_FAS_computer_R',
                        'GEN_FAS_car_R', 'GEN_FAS_vacation_R', 'GEN_FAS_ownroom_R']]
-
 
             classes = self.input_args['classes']
 
@@ -252,14 +249,11 @@ class Population:
 
         def generate_bmi(self):
 
-
             '''
             Generate BMI value for nodes.
 
-
             Returns:
-            dictionary: Dictionary with BMI score per child.
-
+                dictionary: Dictionary with BMI score per child.
             '''
 
             bmi = pd.read_csv('../data/bmi.csv', sep=';', header=0)
@@ -278,9 +272,8 @@ class Population:
                 orig_dict (dict): original dictionary with fault floats
 
             Returns:
-            dictionary: Dictionary with updated float values. 
+                dictionary: Dictionary with updated float values.
             '''
-
 
             new_dict = {}
             for k, item in orig_dict.items():
@@ -297,14 +290,12 @@ class Population:
             '''
             Generate gender, age and class information per node.
 
-
             Returns:
-            dictionary: Dictionary with gender, age and class information per child.
-
+                dictionary: Dictionary with gender, age and class information per child.
             '''
+
             background = pd.read_csv('../data/background.csv', sep=';', header=0)
             pp = pd.read_csv('../data/pp.csv', sep=';', header=0)
-
             gender_df = background.groupby(['Child_Bosse']).mean()['Gender']
             age_df = background.groupby(['Child_Bosse']).mean()['Age']
 
@@ -315,14 +306,13 @@ class Population:
             pp.index = pp.Child_Bosse
             class_df = pp['class']
 
-
             gender_df.to_csv('../output/gender.csv')
             age_df.to_csv('../output/age.csv')
             class_df.to_csv('../output/class.csv')
 
             return dict(gender_df), dict(age_df), dict(class_df)
 
-        
+
         def get_empirical(self,metric='steps',classes=[]):
             '''
             Get empirical physical activity data. 
@@ -332,9 +322,9 @@ class Population:
                 classes (array): list of class ids
 
             Returns:
-            dataframe: physical activity data (steps) per child and wave.
-
+                dataframe: physical activity data (steps) per child and wave.
             '''
+
             fitbit = pd.read_csv('../data/fitbit.csv', sep=';', header=0)
 
             classes = self.input_args['classes']
@@ -357,10 +347,8 @@ class Population:
                 bmi (Integer): person BMI 
 
             Returns:
-            Integer: BMI category value
-
+                Integer: BMI category value
             '''
-
 
             if (bmi == -1) or (gender == -1) or (age == -1) :
                 return np.nan
@@ -746,10 +734,7 @@ class Population:
                         category=5
             return category
         
-        
-        
-        
-        
+
         def get_subgraphs_centrality(self,graph,centrality_type='indegree'):
             '''
             Calls methods for creation of the graph and saves the graph as gexf file.
@@ -761,9 +746,9 @@ class Population:
                 debug (boolean): debug related messages. default is false
 
             Returns:
-            Graph: NetworkX graph representing school classes network.
-
+                Graph: NetworkX graph representing school classes network.
             '''
+
             class_list = self.input_args['classes']
 
             # Create a dictionary. Keys are the classes, and the values are list of students
@@ -777,8 +762,6 @@ class Population:
 
             list_subgraphs = [] 
             cent_dict = {}
-
-
 
             for c in class_list:
                 #print(class_dictionary[c])
@@ -802,15 +785,17 @@ class Population:
 
 
         def get_class_dictionary(self,graph,centrality_type='indegree'):
+
             '''
             Generates the dictionary with BMI and env for each kid per class
             Create a dictionary. Keys are the classes, and the values are list 
-                of students
+            of students
+
+
+            TODO: This method is called multiple times. Suggestion: better to store output in an object, and reuse it. (perhaps in simulation)
             '''
 
             class_list = self.input_args['classes']
-
-
             class_dictionary = {}
 
             for c in class_list:
@@ -840,8 +825,7 @@ class Population:
                 debug (boolean): debug related messages. default is false
 
             Returns:
-            Graph: NetworkX graph representing school classes network.
-
+                Graph: NetworkX graph representing school classes network.
             '''    
 
             if(intervention == 'outdegree' or intervention == 'indegree' or intervention == 'closeness' or intervention == 'betweenness'):
@@ -872,7 +856,7 @@ class Population:
             return graph
 
 
-        def apply_intervention_random_nodes(self,graph, perc=0.1, debug=False):
+        def apply_intervention_random_nodes(self, graph, perc=0.1, debug=False):
             '''
             Random selection of nodes based purely in the percentage
             '''
@@ -924,22 +908,16 @@ class Population:
                 elif criteria=='min':
                     centrality_list.sort(key=lambda tup: tup[1])
 
-
                 # all nodes just for information purposes....
                 all_nodes=centrality_list
                 all_nodes_id = [item[0] for item in all_nodes]      
                 all_nodes_pal=[item[1] for item in all_nodes]
-
-
-
-
 
                 selected_nodes = centrality_list[0:num_selected]
                 selected_nodes_id = [item[0] for item in selected_nodes]      
                 selected_nodes_pal=[item[1] for item in selected_nodes]
 
                 list_selected = list_selected + selected_nodes_id
-
 
         #         print('Class {}: #{} nodes'.format(c,num_selected))
         #         print('{0}'.format(list_selected))
@@ -950,10 +928,13 @@ class Population:
 
             return list_selected
 
+
         def apply_interventions_centrality(self,graph, perc=0.1, debug=False, centrality_type='indegree'):
+
             '''
             Select nodes with higher centrality
             '''
+
             list_selected = []
             class_list=[graph.graph['class']]
             class_dictionary = self.get_class_dictionary(graph,centrality_type)
@@ -979,21 +960,19 @@ class Population:
                 all_nodes_pal=[item[3] for item in all_nodes]
                 all_nodes_gender=[item[2] for item in all_nodes]    
 
-                
                 selected_nodes_centrality,selected_nodes_id,selected_nodes_pal, selected_nodes_gender = self.getRandomNodes(num_selected,all_nodes_centrality,all_nodes_id,all_nodes_pal,all_nodes_gender)
-                
 
                 list_selected = list_selected + selected_nodes_id    
-
 
             return list_selected
 
 
-
         def apply_interventions_high_risk(self,graph, level_f='../', debug=False):
+
             '''
             Select nodes with higher BMI
             '''
+
             list_selected = []
 
             class_dictionary = self.get_class_dictionary(graph)
@@ -1024,9 +1003,11 @@ class Population:
 
 
         def apply_interventions_vulnerability(self,graph, perc=0.1, debug=False):
+
             '''
             Select nodes with higher BMI
             '''
+
             list_selected = []
 
             class_dictionary = self.get_class_dictionary(graph)
@@ -1059,9 +1040,9 @@ class Population:
             return list_selected
 
 
-
         # Max influence
         def apply_intervention_max_influence(self,graph, perc=0.1, years=1, thres_PA = 0.2, I_PA = 0.00075, debug=False, modeltype='diffusion', delta=0.2):
+
             '''
             Objective is to maximize the PA of the whole network.
             '''
@@ -1132,7 +1113,6 @@ class Population:
             return get_intervention_nodes(graph, selected_nodes=all_selected)
 
 
-
         def getRandomNodes(self,numNodes,valueArray,idArray,palArray,genderArray):
             '''
             Calls methods for creation of the graph and saves the graph as gexf file.
@@ -1144,9 +1124,9 @@ class Population:
                 debug (boolean): debug related messages. default is false
 
             Returns:
-            Graph: NetworkX graph representing school classes network.
+                Graph: NetworkX graph representing school classes network.
+            '''
 
-            '''   
             finalindices=[]
             sel=numNodes
             cent=valueArray
@@ -1164,8 +1144,6 @@ class Population:
             selectedids=[]
             selectedpal=[]
             selectedgender=[]
-   
-
 
             while len(finalindices)!=sel: 
 
@@ -1176,15 +1154,12 @@ class Population:
         #         print('max indices: ' + repr(test))
         #         print('selected '+repr([centhelp[i] for i in test]))
 
-
-
                 if len(test)>selhelp:
                     test=random.sample(test,selhelp)
                     finalindices.extend(random.sample(test,selhelp))
         #             print('1 finalindices: ' + repr(finalindices))
                 elif len(test)==selhelp:
                     finalindices.extend(test)
-
         #             print('2 finalindices: ' + repr(finalindices))
                 elif len(test)<selhelp:
                     finalindices.extend(test)
@@ -1221,12 +1196,14 @@ class Population:
                 debug (boolean): debug related messages. default is false
 
             Returns:
-            Graph: NetworkX graph representing school classes network.
+                Graph: NetworkX graph representing school classes network.
 
             '''
+
             maxval = None
             index = 0
             indices = []
+
             while True:
                 try:
                     val = vals[index]
@@ -1239,13 +1216,11 @@ class Population:
                     elif val == maxval:
                         indices.append(index)
                     index = index + 1
-                    
-                    
-                    
+
+
         def get_class_graphs(self,graph):
 
             '''
-
             Return list of NetworkX subgraphs (each subgraph is a separate class).
 
             Specify wanted classes in c_list, generate all classes by default.
@@ -1254,7 +1229,6 @@ class Population:
                           Subgraphs directory.
 
             label - the network type of the input graph.
-
             '''
 
             try:
@@ -1264,19 +1238,16 @@ class Population:
                 print(ex)
                 return
 
-
             class_list = input_simulation['classes'] 
             writeToFile = input_simulation['writeToExcel'] 
             label = input_simulation['network']
             label = label[0]
-
 
         #     if(writeToFile):
         #         directory='output/ClassesSummary/GephiSubgraphs'
         #         if not os.path.exists(directory):
         #             os.makedirs(directory)
             # if list is empty, we want all the classes
-
 
             class_dictionary = {}
 
@@ -1309,4 +1280,3 @@ class Population:
                 list_subgraphs.append(subgraph)
 
             return  list_subgraphs
-

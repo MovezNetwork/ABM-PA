@@ -20,10 +20,10 @@ import newsrc.model as m
 class Simulation:
     def __init__(self, **args):
         self.input_args = self.load_input_args()
-        self.population = p.Population('MyMovez school classes',self.input_args)
-        self.model = m.DiffusionModel('Gabrianelli Diffusion Model',self.input_args)
-          
-    
+        self.population = p.Population('MyMovez school classes', self.input_args)
+        self.model = m.DiffusionModel('Gabrianelli Diffusion Model', self.input_args)
+
+
     def load_input_args(self):
         try:
             input_args = json.loads(open('../input/simulation.json').read())
@@ -35,6 +35,12 @@ class Simulation:
     
     
     def start(self,time):
+        '''
+        TODO: call to methods for simulation should go in here. All relevant methods should be knit together here
+        '''
         pass
         
-        
+
+    '''
+    TODO: should we include a "reset"(= clean up some objects; so you can restart a run without running init again) & "stop" (= clean up all objects) method
+    '''

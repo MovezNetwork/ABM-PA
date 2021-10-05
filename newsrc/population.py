@@ -15,21 +15,22 @@ class Population:
 
         def __init__(self, name, input_args):
             '''
-            TODO: intervention methods in seperate module ("networkInterventions")? The only argument the methods need is self.get_class_dictionary(graph); one of my remarks is to store this, and call in simulation.
-
+            TODO: intervention methods in seperate module ("networkInterventions")? The only argument the methods need is self.get_class_dictionary(graph); one of my remarks is to      store this, and call in simulation.
+            REPLY: intervention methods kept in this script and renamed. get_class_dictionary values are actually used (for selecting agents based on centrality) so I kept it as it is.
             TODO: set_nodes before set_edges? Perhaps rename set_nodes to "create_population". This is in line with our module name; in the description we can
             say that we use graph datastructure
-
+            REPLY: I merged set_nodes, set_edges, remove_nodes into a single method called create_population. it makes more sense to me (simpler, cleaner), but we can discuss it together.
             TODO: Methods that start with generate (e.g. generate_basic) rename to assign (assign_basic)?
+            REPLY:Done
+            
+            TODO: bmi categories method if-else to be replaced with json input file
             '''
             self.name = name
             self.input_args = input_args
-            self.graph = self.graph_set_edges(nx.DiGraph())
-            self.graph = self.graph_set_nodes(self.graph)
-            self.graph = self.graph_remove_nodes(self.graph)
+            self.graph = self.create_population(nx.DiGraph())
 
 
-        def graph_set_edges(self,graph):
+        def create_population(self,graph):
     
             '''
             Create graph's weights between edges depending on the chosen formula. 
@@ -44,13 +45,17 @@ class Population:
             Graph: updated graph with weighted connections.
 
             '''
+        
+            # CREATE CONNECTIONS
             graph = graph
             formula = ''
             # List with all the participants in the experiment
             pp = pd.read_csv('../data/pp.csv', sep=';', header=0)
             list_participants = list(pp.Child_Bosse)
             
-            label = self.input_args['network'][0]
+            label = self.input_args['network']
+            class_list = self.input_args['classes']
+
 
             # Read the file with the nominations from the participants and adapt the labels for the columns
             nominations = pd.read_csv('../data/nominations.csv', sep=';', header=0)
@@ -70,7 +75,7 @@ class Population:
                 print('File {}settings/connections_{}.json does not exist!')
                 print(ex)
                 return
-            
+                        
             # Sum of all weights from the formula
             max_score = sum(formula.values())
 
@@ -106,34 +111,15 @@ class Population:
                     if weight > 0:
                         graph.add_edge(pred,succ,weight=weight)
         #                 print('pred: '+ repr(pred)+' succ:'+repr(succ)+' weight:'+repr(weight))
-
-            # Save the connections file in the results folder
-
-#             if label is None:
-#                 connections_df.to_csv('../output/connections.csv')
-#             else:
-#                 connections_df.to_csv(('../output/connections_{1}.csv').format(label))
-
-            return graph
-
-    
-        def graph_set_nodes(self,graph):
-    
-            '''
-            Calls methods for customizing the graph nodes, with information like gender, age, class, height, weight, environment, BMI. 
-
-            Args:
-                graph (Graph): The input school graph
-
-            Returns:
-            Graph: Updated graph with customized nodes.
-
-            '''
-
-            PA_dict = self.generate_PA(metric='steps')
-            gender_dict, age_dict, class_dict = self.generate_basic()
-            environment_dict = self.generate_environment()
-            bmi_dict = self.generate_bmi()
+        
+        
+        
+        
+            # POPULATE THE AGENTS
+            PA_dict = self.assign_PA(metric='steps')
+            gender_dict, age_dict, class_dict = self.assign_basic()
+            environment_dict = self.assign_environment()
+            bmi_dict = self.assign_bmi()
 
             PA_dict = self.fix_float64(PA_dict)
             #print('PA')
@@ -161,39 +147,33 @@ class Population:
                 obesity_class[node] = self.get_bmi_cat(gender_dict[node], age_dict[node], bmi_dict[node])
 
             nx.set_node_attributes(graph, values=obesity_class, name='bmi_cat')
+            
+        
+            # REMOVE EXTRA NODES
+            nodes_removed_class = []
+
+            for node in graph.nodes():
+                if graph.nodes()[node]['class'] not in class_list:
+                    nodes_removed_class.append(node)
+
+            graph.remove_nodes_from(nodes_removed_class)
+            
+            
+            # Save the connections file in the results folder
+
+#             if label is None:
+#                 connections_df.to_csv('../output/connections.csv')
+#             else:
+#                 connections_df.to_csv(('../output/connections_{1}.csv').format(label))
 
             return graph
-        
-        
-        def graph_remove_nodes(self,graph):
-    
-                '''
-                Remove the nodes that are not part of the classes of interest.
 
-                Args:
-                    graph (Graph): The input school graph
 
-                Returns:
-                    Graph: Updated graph with (potentially) removed nodes.
-                '''
-
-                nodes_removed_class = []
-                class_list = self.input_args['classes']
-
-                for node in graph.nodes():
-                    if graph.nodes()[node]['class'] not in class_list:
-                        nodes_removed_class.append(node)
-
-                graph.remove_nodes_from(nodes_removed_class)
-                print('Nodes removed for not being in the selected classes: #', len(nodes_removed_class))
-
-                return graph
             
-            
-        def generate_PA(self,metric='steps'):
+        def assign_PA(self,metric='steps'):
 
             '''
-            Generate physical activity value for nodes.
+            Assign physical activity value for nodes.
 
             Args:
                 metric (str): physical activity metrics to use. default is number of steps.
@@ -212,10 +192,10 @@ class Population:
 
 
 
-        def generate_environment(self):
+        def assign_environment(self):
 
             '''
-            Generate environment value for nodes. Combination of different questionnaire responses for owning computers, car, ownroom or allowing summer vacation.
+            Assign environment value for nodes. Combination of different questionnaire responses for owning computers, car, ownroom or allowing summer vacation.
 
             Returns:
                 dictionary: Dictionary with environment score per child.
@@ -247,10 +227,10 @@ class Population:
             return env_dict
 
 
-        def generate_bmi(self):
+        def assign_bmi(self):
 
             '''
-            Generate BMI value for nodes.
+            Assign BMI value for nodes.
 
             Returns:
                 dictionary: Dictionary with BMI score per child.
@@ -285,10 +265,10 @@ class Population:
             return new_dict
 
         
-        def generate_basic(self):
+        def assign_basic(self):
 
             '''
-            Generate gender, age and class information per node.
+            Assign gender, age and class information per node.
 
             Returns:
                 dictionary: Dictionary with gender, age and class information per child.
@@ -299,7 +279,7 @@ class Population:
             gender_df = background.groupby(['Child_Bosse']).mean()['Gender']
             age_df = background.groupby(['Child_Bosse']).mean()['Age']
 
-            # Generate Class
+            # Assign Class
             pp['class'] = pp.Class_Y1
             # Fill the missing data at Class column with the data from Y1.
             pp['class'].fillna(pp.Class_Y2, inplace=True)
@@ -814,7 +794,7 @@ class Population:
             return class_dictionary
 
 
-        def get_intervention_nodes(self,graph, perc = 0, intervention = '', debug=False):
+        def select_influential_agents(self,graph, perc = 0, intervention = '', debug=False):
             '''
             Calls methods for creation of the graph and saves the graph as gexf file.
 
@@ -829,20 +809,20 @@ class Population:
             '''    
 
             if(intervention == 'outdegree' or intervention == 'indegree' or intervention == 'closeness' or intervention == 'betweenness'):
-                selected_nodes = self.apply_interventions_centrality(graph,perc,centrality_type = intervention)
+                selected_nodes = self.select_influential_agents_centrality(graph,perc,centrality_type = intervention)
             elif(intervention == 'max'  or intervention == 'min'):
-                selected_nodes = self.apply_intervention_pal(graph,perc,criteria = intervention)
+                selected_nodes = self.select_influential_agents_pal(graph,perc,criteria = intervention)
             elif(intervention == 'random'):
-                selected_nodes = self.apply_intervention_random_nodes(graph,perc)
+                selected_nodes = self.select_influential_agents_random(graph,perc)
             elif(intervention == 'highrisk'):
-                selected_nodes = self.apply_interventions_high_risk(graph,perc)
+                selected_nodes = self.select_influential_agents_high_risk(graph,perc)
             elif(intervention == 'vulnerability'):
-                selected_nodes = self.apply_interventions_vulnerability(graph,perc)
+                selected_nodes = self.select_influential_agents_vulnerability(graph,perc)
             elif(intervention == 'nointervention'):
                 return graph
 
             '''
-            Apply the intervention for the PA
+            Increase the PA by 1.17 for the selected influential agents (based on the gabrianeli paper)
             '''
             for node in selected_nodes:
                 # 17%
@@ -856,14 +836,13 @@ class Population:
             return graph
 
 
-        def apply_intervention_random_nodes(self, graph, perc=0.1, debug=False):
+        def select_influential_agents_random(self, graph, perc=0.1, debug=False):
             '''
-            Random selection of nodes based purely in the percentage
+            Random Selection
             '''
 
             list_selected = []
             class_dictionary = self.get_class_dictionary(graph)
-
         #     print('------------------------------------------------------------------')
         #     print('Getting {0}% of the nodes'.format(perc))
         #     print('------------------------------------------------------------------')
@@ -882,9 +861,9 @@ class Population:
 
             return list_selected
     
-        def apply_intervention_pal(self,graph, perc=0.1, criteria='min',debug=False):
+        def select_influential_agents_pal(self,graph, perc=0.1, criteria='min',debug=False):
             '''
-            Random selection of nodes based purely in the percentage
+            Selection based on PAL
             '''
 
             list_selected = []
@@ -929,7 +908,7 @@ class Population:
             return list_selected
 
 
-        def apply_interventions_centrality(self,graph, perc=0.1, debug=False, centrality_type='indegree'):
+        def select_influential_agents_centrality(self,graph, perc=0.1, debug=False, centrality_type='indegree'):
 
             '''
             Select nodes with higher centrality
@@ -967,7 +946,7 @@ class Population:
             return list_selected
 
 
-        def apply_interventions_high_risk(self,graph, level_f='../', debug=False):
+        def select_influential_agents_high_risk(self,graph, level_f='../', debug=False):
 
             '''
             Select nodes with higher BMI
@@ -1002,7 +981,7 @@ class Population:
             return list_selected
 
 
-        def apply_interventions_vulnerability(self,graph, perc=0.1, debug=False):
+        def select_influential_agents_vulnerability(self,graph, perc=0.1, debug=False):
 
             '''
             Select nodes with higher BMI
@@ -1041,7 +1020,7 @@ class Population:
 
 
         # Max influence
-        def apply_intervention_max_influence(self,graph, perc=0.1, years=1, thres_PA = 0.2, I_PA = 0.00075, debug=False, modeltype='diffusion', delta=0.2):
+        def select_influential_agents_max_influence(self,graph, perc=0.1, years=1, thres_PA = 0.2, I_PA = 0.00075, debug=False, modeltype='diffusion', delta=0.2):
 
             '''
             Objective is to maximize the PA of the whole network.

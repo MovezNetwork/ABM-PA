@@ -915,6 +915,8 @@ class Population:
             '''
 
             list_selected = []
+      
+    
             class_list=[graph.graph['class']]
             class_dictionary = self.get_class_dictionary(graph,centrality_type)
         #     print('------------------------------------------------------------------')
@@ -1210,16 +1212,10 @@ class Population:
             label - the network type of the input graph.
             '''
 
-            try:
-                input_simulation = json.loads(open('../input/simulation.json').read())
-            except Exception as ex:
-                print('simulation.json does not exist!')
-                print(ex)
-                return
 
-            class_list = input_simulation['classes'] 
-            writeToFile = input_simulation['writeToExcel'] 
-            label = input_simulation['network']
+            class_list = self.input_args['classes']
+            writeToFile = self.input_args['writeToExcel'] 
+            label = self.input_args['network']
             label = label[0]
 
         #     if(writeToFile):
@@ -1259,3 +1255,84 @@ class Population:
                 list_subgraphs.append(subgraph)
 
             return  list_subgraphs
+        
+        
+        def population_network_summary(self,graph):
+                        
+            population_list = []
+            node_data_list = []
+            for subgraph in self.get_class_graphs(graph):
+            
+                dict_out_degree = dict(subgraph.out_degree())
+                dict_in_degree = dict(subgraph.in_degree())
+                dict_eigen_vector = dict(nx.eigenvector_centrality(subgraph))
+                dict_closeness = dict(nx.closeness_centrality(subgraph))
+                dict_betweenness = dict(nx.betweenness_centrality(subgraph))
+                
+                total_agents = subgraph.number_of_nodes()
+
+                # graph centralization measures - on class level
+                max_ind=max(dict_in_degree.values())
+                dividor_ind=(len(dict_in_degree.values())-1)*(max_ind-1)
+                sum_ind=0 
+
+                max_outd=max(dict_out_degree.values())
+                dividor_outd=(len(dict_out_degree.values())-1)*(max_outd-1)
+                sum_outd=0   
+
+                max_close=max(dict_closeness.values())
+                dividor_close=(len(dict_closeness.values())-1)*(max_close-1) if (len(dict_closeness.values())-1)*(max_close-1)!=0 else 1
+                sum_close=0
+
+                max_beetwn=max(dict_betweenness.values())
+                dividor_beetwn=(len(dict_betweenness.values())-1)*(max_beetwn-1)
+                sum_beetwn=0            
+
+                gender_f = 0
+                gender_m = 0
+                
+                avg_envorinment_score = 0
+                avg_bmi_score = 0
+                
+                isolated_nodes = []
+                
+                for nodedata in subgraph.nodes().data():
+                    #for graph-level data
+                    
+                    #centralization measures
+                    sum_ind = sum_ind+(max_ind-dict_in_degree[nodedata[0]])
+                    sum_outd = sum_outd+(max_outd-dict_out_degree[nodedata[0]])
+                    sum_close = sum_close+(max_close-dict_closeness[nodedata[0]])
+                    sum_beetwn = sum_beetwn+(max_beetwn+dict_betweenness[nodedata[0]])
+                    
+                    #other measures
+                    if(nodedata[1]['gender']==1.0):
+                        gender_f = gender_f + 1
+                        
+                    avg_envorinment_score = avg_envorinment_score + nodedata[1]['env']    
+                    avg_bmi_score = avg_bmi_score + nodedata[1]['bmi'] 
+                    #isolated nodes - based on in-degree for now.
+                    if dict_in_degree[nodedata[0]]==0:
+                        isolated_nodes.append(nodedata[0])
+                        
+                    #participant-level data
+                    node_data_list.append([nodedata[0], nodedata[1]['class'], nodedata[1]['gender'], nodedata[1]['PA'], nodedata[1]['bmi'],nodedata[1]['env'],dict_in_degree[nodedata[0]], dict_out_degree[nodedata[0]],dict_eigen_vector[nodedata[0]],dict_closeness[nodedata[0]],dict_betweenness[nodedata[0]]])
+                
+                #population level data
+                population_list.append([nodedata[1]['class'],total_agents,int((gender_f/total_agents)*100),subgraph.number_of_edges(), round(nx.density(subgraph),2), len(isolated_nodes),round(sum_ind/dividor_ind,2),round(sum_outd/dividor_outd,2),round(sum_close/dividor_close,2),round(sum_beetwn/dividor_beetwn,2),round(nx.average_shortest_path_length(subgraph),2),round(nx.degree_assortativity_coefficient(subgraph),2),round(avg_envorinment_score/total_agents,2),round(avg_bmi_score/total_agents,2)])
+                
+            
+            #create the dataframes
+            df_population_details = pd.DataFrame(population_list, columns = ["SchoolClassID", "NumberOfAgents", "PercentageFemale", "NumberConnections", "Density", "IsolatedNodes","CentralizationInDegree", "CentralizationOutDegree", "CentralizationCloseness", "CentralizationBetweenness", "AvgShortestPath", "DegreeAssortativity","AverageEnvironmentScore","AverageBMIScore"])
+            
+            df_agent_details = pd.DataFrame(node_data_list, columns = ["ParticipantID","SchoolClassID", "Gender", "PA", "BMI", "Environment", "InDegree", "OutDegree", "EigenVector", "Closeness", "Betweenness"])
+            
+            if self.input_args['writeToExcel']:
+                df_population_details.to_excel('../output/population_details.xlsx')
+                df_agent_details.to_excel('../output/agents_details.xlsx')
+        
+        
+            
+            return df_population_details, df_agent_details
+
+                

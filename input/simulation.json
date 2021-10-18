@@ -7,13 +7,10 @@
     "writeToExcel" : true,
     "generateGephiFiles" : true,
     "classes": [67, 71, 72, 74, 77, 78, 79, 81, 83, 86, 100, 101, 103, 121, 122, 125, 126, 127, 129, 130, 131, 133, 135, 136, 138, 139],
-    "parameters_friend" : [0.042624787704548806, 0.0040999256641623405],
-    "parameters_all" : [0.09420487943939887, 0.005507766256539898],
-    "parameters_gen": [0.058781687689926684, 0.0057354077803888695],
     "intervention_strategy" : ["nointervention","outdegree", "indegree", "closeness", "betweenness"],
     "intervention_color" : ["black","red", "green", "yellow", "blue"],
     "create_doc" : true,
     "save_png": true,
-    "thres_PA": 0.2,
-    "I_PA": 0.00075
+    "thres_PA": 0.09420487943939887,
+    "I_PA": 0.005507766256539898
 }

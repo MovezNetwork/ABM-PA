@@ -15,15 +15,16 @@ class Population:
 
         def __init__(self, name, input_args):
             '''
-            TODO: intervention methods in seperate module ("networkInterventions")? The only argument the methods need is self.get_class_dictionary(graph); one of my remarks is to      store this, and call in simulation.
+            TODO: intervention methods in seperate module ("networkInterventions")? The only argument the methods need is self.get_class_dictionary(graph); one of my remarks is to store this, and call in simulation.
             REPLY: intervention methods kept in this script and renamed. get_class_dictionary values are actually used (for selecting agents based on centrality) so I kept it as it is.
             TODO: set_nodes before set_edges? Perhaps rename set_nodes to "create_population". This is in line with our module name; in the description we can
             say that we use graph datastructure
+           
             REPLY: I merged set_nodes, set_edges, remove_nodes into a single method called create_population. it makes more sense to me (simpler, cleaner), but we can discuss it together.
             TODO: Methods that start with generate (e.g. generate_basic) rename to assign (assign_basic)?
             REPLY:Done
             
-            TODO: bmi categories method if-else to be replaced with json input file
+            TODO: bmi categories method if-else to be replaced with json input file; get_class_dictionary in init method; select_influencial_agents add PALincrease arg
             '''
             self.name = name
             self.input_args = input_args
@@ -120,6 +121,8 @@ class Population:
             gender_dict, age_dict, class_dict = self.assign_basic()
             environment_dict = self.assign_environment()
             bmi_dict = self.assign_bmi()
+#             print(environment_dict)
+
 
             PA_dict = self.fix_float64(PA_dict)
             #print('PA')
@@ -129,7 +132,8 @@ class Population:
             #print('age')
             class_dict = self.fix_float64(class_dict)
             #print('class')
-            environment_dict = self.fix_float64(environment_dict)
+#             environment_dict = self.fix_float64(environment_dict)
+#             print(environment_dict)
             #print('env')
             bmi_dict = self.fix_float64(bmi_dict)
             #print('obesity classifier')
@@ -819,11 +823,12 @@ class Population:
             elif(intervention == 'vulnerability'):
                 selected_nodes = self.select_influential_agents_vulnerability(graph,perc)
             elif(intervention == 'nointervention'):
-                return graph
+                return (graph,[])
 
             '''
             Increase the PA by 1.17 for the selected influential agents (based on the gabrianeli paper)
             '''
+   
             for node in selected_nodes:
                 # 17%
                 if debug:
@@ -833,7 +838,7 @@ class Population:
                 if debug:
                     print('Node #{} - new PA: {}'.format(node,graph.nodes[node]['PA']))
 
-            return graph
+            return (graph,selected_nodes)
 
 
         def select_influential_agents_random(self, graph, perc=0.1, debug=False):
@@ -915,7 +920,6 @@ class Population:
             '''
 
             list_selected = []
-      
     
             class_list=[graph.graph['class']]
             class_dictionary = self.get_class_dictionary(graph,centrality_type)

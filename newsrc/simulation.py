@@ -46,33 +46,39 @@ class Simulation:
         writeToExcel = self.input_args['writeToExcel'] 
         intervention_strategies = self.input_args['intervention_strategy']
 
+        #selected infuential agents
+        simulation_selected_agents = {}
         #outcomes of the intervention
         simulation_outcomes_child = {}
         simulation_outcomes_avg = {}
-            
         for classroom_population in self.population.get_class_graphs(self.population.graph):
 
             classroom_population_id = list(classroom_population.nodes(data='class'))[1][1]
             simulation_outcomes_child[str(classroom_population_id)] = {}
             simulation_outcomes_avg[str(classroom_population_id)] = {}
+            simulation_selected_agents[str(classroom_population_id)] = {}
             
-            cl_pop = classroom_population
-            
-            for intervention in intervention_strategies:
+            c = classroom_population
 
+            for intervention in intervention_strategies:
                 # modifies the PA of particular agents selected as influential 
-                cl_pop = self.population.select_influential_agents(cl_pop, percent, intervention, False)
+                agent_selection_tuple = self.population.select_influential_agents(classroom_population, percent, intervention, False)
+                # updated graph with enhanced PA in influential agents
+                cl_pop = agent_selection_tuple[0]
+                selected_agents = agent_selection_tuple[1]
                 #running the simulation, executing the model with every timestamp
                 for t in range(0,time):
                     cl_pop = self.model.execute(cl_pop,t)
-
-                simulation_outcomes_child[str(classroom_population_id)][intervention] = self.get_intervention_PA_dictionary(cl_pop)
-                simulation_outcomes_avg[str(classroom_population_id)][intervention] = self.get_intervention_PA_dictionary(cl_pop).mean(axis=1)
+                
+                outcomes_in_dict = self.get_intervention_PA_dictionary(cl_pop)
+                simulation_outcomes_child[str(classroom_population_id)][intervention] = outcomes_in_dict
+                simulation_outcomes_avg[str(classroom_population_id)][intervention] = outcomes_in_dict.mean(axis=1)
+                simulation_selected_agents[str(classroom_population_id)][intervention] = selected_agents
         
         if writeToExcel:
             self.interventionResultsToExcel(simulation_outcomes_child)
         
-        return simulation_outcomes_child,simulation_outcomes_avg
+        return simulation_outcomes_child,simulation_outcomes_avg,simulation_selected_agents
             
     def get_intervention_PA_dictionary(self,graph):
         results_dict = dict(graph.nodes(data=True))
@@ -189,15 +195,15 @@ class Simulation:
             plt.xlabel('Days')
             plt.ylabel('Mean PA')
             j = 0
-            for i in input_args['intervention_strategy']:
-                results_avg[class_id][i].plot(color=input_args['intervention_color'][j],label= i)
+            for i in self.input_args['intervention_strategy']:
+                results_avg[class_id][i].plot(color=self.input_args['intervention_color'][j],label= i)
                 j = j + 1
             plt.legend(title='All Interventions '+  class_id, loc="upper right")
             
             
     def plot_interventions_averaged(self,results_avg):
         all_averaged = {}
-        for i in input_args['intervention_strategy']:
+        for i in self.input_args['intervention_strategy']:
             temp_res = pd.Series([], dtype = float)
             counter = 0
             for class_id,res in results_avg.items():
@@ -210,8 +216,8 @@ class Simulation:
         plt.xlabel('Days')
         plt.ylabel('Mean PA')
         j = 0
-        for i in input_args['intervention_strategy']:
-            all_averaged[i].plot(color=input_args['intervention_color'][j],label= i)
+        for i in self.input_args['intervention_strategy']:
+            all_averaged[i].plot(color=self.input_args['intervention_color'][j],label= i)
             j = j + 1
         plt.legend(title='All Interventions ', loc="upper right")
             

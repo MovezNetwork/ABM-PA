@@ -11,168 +11,13 @@ import random
 
 
 class Population:
-
-
-        def __init__(self, name, input_args):
-            '''
-            TODO: intervention methods in seperate module ("networkInterventions")? The only argument the methods need is self.get_class_dictionary(graph); one of my remarks is to store this, and call in simulation.
-            REPLY: intervention methods kept in this script and renamed. get_class_dictionary values are actually used (for selecting agents based on centrality) so I kept it as it is.
-            TODO: set_nodes before set_edges? Perhaps rename set_nodes to "create_population". This is in line with our module name; in the description we can
-            say that we use graph datastructure
-           
-            REPLY: I merged set_nodes, set_edges, remove_nodes into a single method called create_population. it makes more sense to me (simpler, cleaner), but we can discuss it together.
-            TODO: Methods that start with generate (e.g. generate_basic) rename to assign (assign_basic)?
-            REPLY:Done
-            
-            TODO: bmi categories method if-else to be replaced with json input file; get_class_dictionary in init method; select_influencial_agents add PALincrease arg
-            '''
+        def __init__(self, name):
             self.name = name
-            self.input_args = input_args
-            self.graph = self.create_population(nx.DiGraph())
 
-
-        def create_population(self,graph):
-    
-            '''
-            Create graph's weights between edges depending on the chosen formula. 
-            The connections are created and weighted based on questionnaire responses. 
-            Use all (the whole set of questions), gen (only the general questions) or friends (only the friends questions) to create the weights
-
-            Args:
-                graph (Graph): input graph
-                label (str): label of the graph- gen, all or friends graph
-
-            Returns:
-            Graph: updated graph with weighted connections.
-
-            '''
-        
-            # CREATE CONNECTIONS
-            graph = graph
-            formula = ''
-            # List with all the participants in the experiment
-            pp = pd.read_csv('../data/pp.csv', sep=';', header=0)
-            list_participants = list(pp.Child_Bosse)
             
-            label = self.input_args['network']
-            class_list = self.input_args['classes']
-
-
-            # Read the file with the nominations from the participants and adapt the labels for the columns
-            nominations = pd.read_csv('../data/nominations.csv', sep=';', header=0)
-            # nominations.columns = ['class', 'child', 'wave', 'variable', 'class_nominated', 'nominated', 'same_class']
-
-            # Read formula to calculate the weight for the connections
-            try:
-                if label is None:
-                    formula = json.loads(open('../input/connections.json').read())
-                elif label=='all':
-                    formula = json.loads(open('../input/connections_all.json').read())
-                elif label=='gen':
-                    formula = json.loads(open('../input/connections_gen.json').read())
-                elif label=='friend':
-                    formula = json.loads(open('../input/connections_friend.json').read())
-            except Exception as ex:
-                print('File {}settings/connections_{}.json does not exist!')
-                print(ex)
-                return
-                        
-            # Sum of all weights from the formula
-            max_score = sum(formula.values())
-
-            # Create a dictionary with the connections and weights
-            connections_dict = {}
-            for child in list(pp.Child_Bosse):
-                connections_dict[child] = {}
-
-            # To avoid repetition of nominations in different waves
-            nominations_list = []
-
-            for line in nominations[['child', 'nominated', 'variable']].iterrows():
-                (ch, nom, var) = line[1]  
-                # Verify if nominated is in the list of participants (pp)
-                if nom in list_participants and (ch, nom, var) not in nominations_list:
-                    # Add value in the key
-                    connections_dict[ch][nom] = connections_dict[ch].get(nom, 0) + 1*formula[var]
-                    nominations_list.append((ch, nom, var))
-
-            # Make a dataframe and normalize the values for the edges
-            connections_df = pd.DataFrame(connections_dict).fillna(0)/max_score
-            connections_dict = connections_df.to_dict()
-            # eric approach : child(node[0])-succ;nominated(node[1])-pred;weight
-            # thabo approach: child(node[0])-pred;nominated(node[1])-succ;weight
-
-            #An arrow (x, y) is considered to be directed from x to y; y is called the head and x is called the tail of the arrow; y is said to be a direct successor of x and x is said to be a direct predecessor of y.
-
-            # Create the edges in the graph
-            for node in connections_dict.items():
-                pred = node[0]
-                origins = node[1]
-                for succ, weight in origins.items():
-                    if weight > 0:
-                        graph.add_edge(pred,succ,weight=weight)
-        #                 print('pred: '+ repr(pred)+' succ:'+repr(succ)+' weight:'+repr(weight))
+        def create_population(self):
+            pass
         
-        
-        
-        
-            # POPULATE THE AGENTS
-            PA_dict = self.assign_PA(metric='steps')
-            gender_dict, age_dict, class_dict = self.assign_basic()
-            environment_dict = self.assign_environment()
-            bmi_dict = self.assign_bmi()
-#             print(environment_dict)
-
-
-            PA_dict = self.fix_float64(PA_dict)
-            #print('PA')
-            gender_dict = self.fix_float64(gender_dict)
-            #print('gender')
-            age_dict = self.fix_float64(age_dict)
-            #print('age')
-            class_dict = self.fix_float64(class_dict)
-            #print('class')
-#             environment_dict = self.fix_float64(environment_dict)
-#             print(environment_dict)
-            #print('env')
-            bmi_dict = self.fix_float64(bmi_dict)
-            #print('obesity classifier')
-
-            nx.set_node_attributes(graph, values=PA_dict, name='PA')
-            nx.set_node_attributes(graph, values=gender_dict, name='gender')
-            nx.set_node_attributes(graph, values=age_dict, name='age')
-            nx.set_node_attributes(graph, values=class_dict, name='class')
-            nx.set_node_attributes(graph, values=environment_dict, name='env')
-            nx.set_node_attributes(graph, values=bmi_dict, name='bmi')
-
-            # Adding category for the nodes
-            obesity_class = {}
-            for node in graph.nodes():
-                obesity_class[node] = self.get_bmi_cat(gender_dict[node], age_dict[node], bmi_dict[node])
-
-            nx.set_node_attributes(graph, values=obesity_class, name='bmi_cat')
-            
-        
-            # REMOVE EXTRA NODES
-            nodes_removed_class = []
-
-            for node in graph.nodes():
-                if graph.nodes()[node]['class'] not in class_list:
-                    nodes_removed_class.append(node)
-
-            graph.remove_nodes_from(nodes_removed_class)
-            
-            
-            # Save the connections file in the results folder
-
-#             if label is None:
-#                 connections_df.to_csv('../output/connections.csv')
-#             else:
-#                 connections_df.to_csv(('../output/connections_{1}.csv').format(label))
-
-            return graph
-
-
             
         def assign_PA(self,metric='steps'):
 
@@ -184,19 +29,21 @@ class Population:
 
             Returns:
                 dictionary: Dictionary with average steps per child and per wave.
-            '''
+            '''            
+            
+            df_pal = pd.read_csv(self.input_args['agent_pal_file'], sep=';', header=0)
+            df_pal = df_pal[df_pal['Child'].isin(self.input_args['participants'])]
 
-            fitbit = pd.read_csv('../data/fitbit.csv', sep=';', header=0)
-
-            steps_mean_wave = fitbit.groupby(['Child_Bosse', 'Wave']).mean()['Steps_ML_imp1'].reset_index()
-            steps_mean_wave.Steps_ML_imp1 = steps_mean_wave.Steps_ML_imp1 * 0.000153
-            steps_mean_wave = steps_mean_wave.pivot(index='Child_Bosse', columns='Wave')['Steps_ML_imp1']
-
-            return dict(steps_mean_wave[1])
+            df_pal = df_pal.groupby(['Child', 'Wave']).mean()['Steps'].reset_index()
+            df_pal.Steps = df_pal.Steps * 0.000153
+            df_pal = df_pal.pivot(index='Child', columns='Wave')['Steps']
+            # Avg wave 5 data is assigned as PAL
+            return dict(df_pal[5])
 
 
 
         def assign_environment(self):
+
 
             '''
             Assign environment value for nodes. Combination of different questionnaire responses for owning computers, car, ownroom or allowing summer vacation.
@@ -205,28 +52,24 @@ class Population:
                 dictionary: Dictionary with environment score per child.
             '''
 
-            env = pd.read_csv('../data/environment.csv', sep=';', header=0)
-            env = env[['Child_Bosse', 'School', 'Class', 'Wave', 'GEN_FAS_computer_R',
-                       'GEN_FAS_car_R', 'GEN_FAS_vacation_R', 'GEN_FAS_ownroom_R']]
+            env = pd.read_csv(self.input_args['agent_environment_file'], sep=';', header=0)
+            env = env[["Child","GEN_FAS_computer_A01" ,"GEN_FAS_car_A01", "GEN_FAS_vacation_A01", "GEN_FAS_ownroom_A01"]]
 
-            classes = self.input_args['classes']
+            env = env[env['Child'].isin(self.input_args['participants'])]
 
-            env = env[env['Class'].isin(classes)]
 
-            env_filter = env[env.Wave==1][['Child_Bosse', 'GEN_FAS_computer_R', 'GEN_FAS_car_R', 
-                                           'GEN_FAS_vacation_R', 'GEN_FAS_ownroom_R']].copy()
-
-            env_filter['FAS_Score_R'] = env_filter['GEN_FAS_computer_R'] + env_filter['GEN_FAS_vacation_R'] + \
-                                    env_filter['GEN_FAS_car_R']*1.5 + env_filter['GEN_FAS_ownroom_R']*3
+            env['FAS_Score_R'] = env['GEN_FAS_computer_A01'] + env['GEN_FAS_vacation_A01'] + env['GEN_FAS_car_A01']*1.5 + env['GEN_FAS_ownroom_A01']*3
 
             # To keep the values between 0 and 2.
-            env_filter.FAS_Score_R = env_filter.FAS_Score_R/6
-            env_filter.index = env_filter['Child_Bosse']
+            env.FAS_Score_R = abs((env.FAS_Score_R/6) - 2)
+            env.index = env['Child']
 
-            env_dict = dict(env_filter['FAS_Score_R'])
+            env_dict = dict(env['FAS_Score_R'])
             for key, value in env_dict.items():
+                # to all the NaN assign the average FAS_Score
                 if np.isnan(value):
-                    env_dict[key] = env_filter.FAS_Score_R.mean()
+                    env_dict[key] = np.float64(env.FAS_Score_R.mean())
+        
 
             return env_dict
 
@@ -239,12 +82,13 @@ class Population:
             Returns:
                 dictionary: Dictionary with BMI score per child.
             '''
-
-            bmi = pd.read_csv('../data/bmi.csv', sep=';', header=0)
-            bmi = bmi[bmi.Wave==2][['Child_Bosse', 'BMI']]
-            bmi.index = bmi.Child_Bosse
+            bmi = pd.read_csv(self.input_args['agent_bmi_file'], sep=';', header=0)
+            bmi = bmi[bmi.Wave == 5]
+            bmi = bmi[bmi.Child.isin(self.input_args['participants'])]
+            bmi = bmi[['Child', 'BMI']]
+            bmi.index = bmi.Child
             bmi = bmi['BMI']
-
+            
             return dict(bmi)
 
         def fix_float64(self,orig_dict):
@@ -262,10 +106,11 @@ class Population:
             new_dict = {}
             for k, item in orig_dict.items():
                 try:    
-                    new_dict[k] = -1.0 if np.isnan(item) else np.asscalar(item)
+                    new_dict[k] = -1.0 if np.isnan(item) else item.item()
                 except:
                     new_dict[k] = -1.0
-                    #print(k, item)
+
+
             return new_dict
 
         
@@ -278,21 +123,16 @@ class Population:
                 dictionary: Dictionary with gender, age and class information per child.
             '''
 
-            background = pd.read_csv('../data/background.csv', sep=';', header=0)
-            pp = pd.read_csv('../data/pp.csv', sep=';', header=0)
-            gender_df = background.groupby(['Child_Bosse']).mean()['Gender']
-            age_df = background.groupby(['Child_Bosse']).mean()['Age']
+
+            pp = pd.read_csv(self.input_args['agent_personal_file'], sep=';', header=0)
+            pp = pp[pp.Child.isin(self.input_args['participants'])]
+            gender_df = pp.groupby(['Child']).mean()['Sex']
+            age_df = pp.groupby(['Child']).mean()['Age_W5']
 
             # Assign Class
-            pp['class'] = pp.Class_Y1
-            # Fill the missing data at Class column with the data from Y1.
-            pp['class'].fillna(pp.Class_Y2, inplace=True)
-            pp.index = pp.Child_Bosse
+            pp['class'] = pp.Class_Y3
+            pp.index = pp.Child
             class_df = pp['class']
-
-            gender_df.to_csv('../output/gender.csv')
-            age_df.to_csv('../output/age.csv')
-            class_df.to_csv('../output/class.csv')
 
             return dict(gender_df), dict(age_df), dict(class_df)
 
@@ -309,415 +149,16 @@ class Population:
                 dataframe: physical activity data (steps) per child and wave.
             '''
 
-            fitbit = pd.read_csv('../data/fitbit.csv', sep=';', header=0)
+            df_pal = pd.read_csv(self.input_args['agent_pal_file'], sep=';', header=0)
+            df_pal = df_pal[df_pal['Child'].isin(self.input_args['participants'])]
 
-            classes = self.input_args['classes']
+            df_pal = df_pal.groupby(['Child', 'Wave']).mean()['Steps'].reset_index()
+            df_pal.Steps = df_pal.Steps * 0.000153
+            df_pal = df_pal.pivot(index='Child', columns='Wave')['Steps']
 
-            fitbit = fitbit[fitbit['Class'].isin(classes)]
-            steps_mean_wave = fitbit.groupby(['Child_Bosse', 'Wave']).mean()['Steps_ML_imp1'].reset_index()
-            steps_mean_wave.Steps_ML_imp1 = steps_mean_wave.Steps_ML_imp1 * 0.000153
-            steps_mean_wave = steps_mean_wave.pivot(index='Child_Bosse', columns='Wave')['Steps_ML_imp1']
-
-            return steps_mean_wave
+            return df_pal
         
-        def get_bmi_cat(self,gender,age,bmi):
-    
-            '''
-            Calculating the BMI category based on gender, age and BMI value 
 
-            Args:
-                gender (Integer): person gender 
-                age (Integer): person age 
-                bmi (Integer): person BMI 
-
-            Returns:
-                Integer: BMI category value
-            '''
-
-            if (bmi == -1) or (gender == -1) or (age == -1) :
-                return np.nan
-
-            category=0
-            #males
-            if gender==0:
-                if age==2:
-                    if bmi<=13.36:
-                        category=1
-                    elif 13.37<=bmi<=15.13:
-                        category=2
-                    elif 15.14<=bmi<=18.40:
-                        category=3
-                    elif 18.41<=bmi<=20.09:
-                        category=4
-                    elif bmi>20.09:
-                        category=5
-                elif age==3:
-                    if bmi<=13.09:
-                        category=1
-                    elif 13.10<=bmi<=14.73:
-                        category=2
-                    elif 14.74<=bmi<=17.88:
-                        category=3
-                    elif 17.89<=bmi<=19.57:
-                        category=4
-                    elif bmi>19.57:
-                        category=5
-                elif age==4:
-                    if bmi<=12.86:
-                        category=1
-                    elif 12.87<=bmi<=14.42:
-                        category=2
-                    elif 14.43<=bmi<=17.54:
-                        category=3
-                    elif 17.55<=bmi<=19.29:
-                        category=4
-                    elif bmi>19.29:
-                        category=5
-                elif age==5:
-                    if bmi<=12.66:
-                        category=1
-                    elif 12.67<=bmi<=14.20:
-                        category=2
-                    elif 14.21<=bmi<=17.41:
-                        category=3
-                    elif 17.42<=bmi<=19.30:
-                        category=4
-                    elif bmi>19.30:
-                        category=5
-                elif age==6:
-                    if bmi<=12.50:
-                        category=1
-                    elif 12.51<=bmi<=14.06:
-                        category=2
-                    elif 14.07<=bmi<=17.54:
-                        category=3
-                    elif 17.55<=bmi<=19.78:
-                        category=4
-                    elif bmi>19.78:
-                        category=5
-                elif age==7:
-                    if bmi<=12.42:
-                        category=1
-                    elif 12.43<=bmi<=14.03:
-                        category=2
-                    elif 14.04<=bmi<=17.91:
-                        category=3
-                    elif 17.92<=bmi<=20.63:
-                        category=4
-                    elif bmi>20.63:
-                        category=5
-                elif age==8:
-                    if bmi<=12.42:
-                        category=1
-                    elif 12.43<=bmi<=14.14:
-                        category=2
-                    elif 14.15<=bmi<=18.43:
-                        category=3
-                    elif 18.44<=bmi<=21.60:
-                        category=4
-                    elif bmi>21.60:
-                        category=5
-                elif age==9:
-                    if bmi<=12.50:
-                        category=1
-                    elif 12.51<=bmi<=14.34:
-                        category=2
-                    elif 14.35<=bmi<=19.09:
-                        category=3
-                    elif 19.10<=bmi<=22.77:
-                        category=4
-                    elif bmi>22.77:
-                        category=5
-                elif age==10:
-                    if bmi<=12.66:
-                        category=1
-                    elif 12.67<=bmi<=14.63:
-                        category=2
-                    elif 14.64<=bmi<=19.83:
-                        category=3
-                    elif 19.84<=bmi<=24.00:
-                        category=4
-                    elif bmi>24.00:
-                        category=5
-                elif age==11:
-                    if bmi<=12.89:
-                        category=1
-                    elif 12.90<=bmi<=14.96:
-                        category=2
-                    elif 14.97<=bmi<=20.54:
-                        category=3
-                    elif 20.55<=bmi<=25.10:
-                        category=4
-                    elif bmi>25.10:
-                        category=5
-                elif age==12:
-                    if bmi<=13.18:
-                        category=1
-                    elif 13.19<=bmi<=15.34:
-                        category=2
-                    elif 15.35<=bmi<=21.21:
-                        category=3
-                    elif 21.22<=bmi<=26.02:
-                        category=4
-                    elif bmi>26.02:
-                        category=5
-                elif age==13:
-                    if bmi<=13.59:
-                        category=1
-                    elif 13.60<=bmi<=15.83:
-                        category=2
-                    elif 15.84<=bmi<=21.90:
-                        category=3
-                    elif 21.91<=bmi<=26.84:
-                        category=4
-                    elif bmi>26.84:
-                        category=5
-                elif age==14:
-                    if bmi<=14.09:
-                        category=1
-                    elif 14.10<=bmi<=16.40:
-                        category=2
-                    elif 16.41<=bmi<=22.61:
-                        category=3
-                    elif 22.62<=bmi<=27.63:
-                        category=4
-                    elif bmi>27.63:
-                        category=5
-                elif age==15:
-                    if bmi<=14.60:
-                        category=1
-                    elif 14.61<bmi<16.97:
-                        category=2
-                    elif 16.98<=bmi<=23.28:
-                        category=3
-                    elif 23.29<=bmi<=28.30:
-                        category=4
-                    elif bmi>28.30:
-                        category=5
-                elif age==16:
-                    if bmi<=15.12:
-                        category=1
-                    elif 15.13<=bmi<=17.53:
-                        category=2
-                    elif 17.54<=bmi<=23.89:
-                        category=3
-                    elif 23.90<=bmi<=28.88:
-                        category=4
-                    elif bmi>28.88:
-                        category=5
-                elif age==17:
-                    if bmi<=15.60:
-                        category=1
-                    elif 15.61<=bmi<=18.04:
-                        category=2
-                    elif 18.05<=bmi<=24.45:
-                        category=3
-                    elif 24.46<=bmi<=29.41:
-                        category=4
-                    elif bmi>29.41:
-                        category=5
-                elif age==18:
-                    if bmi<=16.00:
-                        category=1
-                    elif 16.01<=bmi<=18.49:
-                        category=2
-                    elif 18.50<=bmi<=24.99:
-                        category=3
-                    elif 25.00<=bmi<=30.00:
-                        category=4
-                    elif bmi>30.00:
-                        category=5
-                            #males
-            if gender==1:
-                if age==2:
-                    if bmi<=13.24:
-                        category=1
-                    elif 13.25<bmi<14.82:
-                        category=2
-                    elif 14.83<=bmi<=18.01:
-                        category=3
-                    elif 18.02<=bmi<=19.81:
-                        category=4
-                    elif bmi>19.81:
-                        category=5
-                elif age==3:
-                    if bmi<=12.98:
-                        category=1
-                    elif 12.99<=bmi<=14.46:
-                        category=2
-                    elif 14.47<=bmi<=17.55:
-                        category=3
-                    elif 17.56<=bmi<=19.36:
-                        category=4
-                    elif bmi>19.36:
-                        category=5
-                elif age==4:
-                    if bmi<=12.73:
-                        category=1
-                    elif 12.74<=bmi<=14.18:
-                        category=2
-                    elif 14.19<=bmi<=17.27:
-                        category=3
-                    elif 17.28<=bmi<=19.15:
-                        category=4
-                    elif bmi>19.15:
-                        category=5
-                elif age==5:
-                    if bmi<=12.50:
-                        category=1
-                    elif 12.51<=bmi<=13.93:
-                        category=2
-                    elif 13.94<=bmi<=17.14:
-                        category=3
-                    elif 17.15<=bmi<=19.17:
-                        category=4
-                    elif bmi>19.17:
-                        category=5
-                elif age==6:
-                    if bmi<=12.32:
-                        category=1
-                    elif 12.33<=bmi<=13.81:
-                        category=2
-                    elif 13.82<=bmi<=17.33:
-                        category=3
-                    elif 17.34<=bmi<=19.65:
-                        category=4
-                    elif bmi>19.65:
-                        category=5
-                elif age==7:
-                    if bmi<=12.26:
-                        category=1
-                    elif 12.27<=bmi<=13.85:
-                        category=2
-                    elif 13.86<=bmi<=17.74:
-                        category=3
-                    elif 17.75<=bmi<=20.51:
-                        category=4
-                    elif bmi>20.51:
-                        category=5
-                elif age==8:
-                    if bmi<=12.31:
-                        category=1
-                    elif 12.32<=bmi<=14.01:
-                        category=2
-                    elif 14.02<=bmi<=18.34:
-                        category=3
-                    elif 18.35<=bmi<=21.57:
-                        category=4
-                    elif bmi>21.57:
-                        category=5
-                elif age==9:
-                    if bmi<=12.44:
-                        category=1
-                    elif 12.45<=bmi<=14.27:
-                        category=2
-                    elif 14.28<=bmi<=19.06:
-                        category=3
-                    elif 19.07<=bmi<=22.81:
-                        category=4
-                    elif bmi>22.81:
-                        category=5
-                elif age==10:
-                    if bmi<=12.64:
-                        category=1
-                    elif 12.65<=bmi<=14.60:
-                        category=2
-                    elif 14.61<=bmi<=19.85:
-                        category=3
-                    elif 19.86<=bmi<=24.11:
-                        category=4
-                    elif bmi>24.11:
-                        category=5
-                elif age==11:
-                    if bmi<=12.95:
-                        category=1
-                    elif 12.96<=bmi<=15.04:
-                        category=2
-                    elif 15.05<=bmi<=20.73:
-                        category=3
-                    elif 20.74<=bmi<=25.42:
-                        category=4
-                    elif bmi>25.42:
-                        category=5
-                elif age==12:
-                    if bmi<=13.39:
-                        category=1
-                    elif 13.40<=bmi<=15.61:
-                        category=2
-                    elif 15.62<=bmi<=21.67:
-                        category=3
-                    elif 21.68<=bmi<=26.67:
-                        category=4
-                    elif bmi>26.67:
-                        category=5
-                elif age==13:
-                    if bmi<=13.92:
-                        category=1
-                    elif 13.93<bmi<16.25:
-                        category=2
-                    elif 16.26<=bmi<=22.57:
-                        category=3
-                    elif 22.58<=bmi<=27.76:
-                        category=4
-                    elif bmi>27.76:
-                        category=5
-                elif age==14:
-                    if bmi<=14.48:
-                        category=1
-                    elif 14.49<=bmi<=16.87:
-                        category=2
-                    elif 16.88<=bmi<=23.33:
-                        category=3
-                    elif 23.34<=bmi<=28.57:
-                        category=4
-                    elif bmi>28.57:
-                        category=5
-                elif age==15:
-                    if bmi<=15.01:
-                        category=1
-                    elif 15.02<=bmi<=17.44:
-                        category=2
-                    elif 17.45<=bmi<=23.93:
-                        category=3
-                    elif 23.94<=bmi<=29.11:
-                        category=4
-                    elif bmi>29.11:
-                        category=5
-                elif age==16:
-                    if bmi<=15.46:
-                        category=1
-                    elif 15.47<=bmi<=17.90:
-                        category=2
-                    elif 17.91<=bmi<=24.36:
-                        category=3
-                    elif 24.37<=bmi<=29.43:
-                        category=4
-                    elif bmi>29.43:
-                        category=5
-                elif age==17:
-                    if bmi<=15.78:
-                        category=1
-                    elif 15.79<=bmi<=18.24:
-                        category=2
-                    elif 18.25<=bmi<=24.69:
-                        category=3
-                    elif 24.70<=bmi<=29.69:
-                        category=4
-                    elif bmi>29.69:
-                        category=5
-                elif age==18:
-                    if bmi<=15.99:
-                        category=1
-                    elif 16.00<=bmi<=18.49:
-                        category=2
-                    elif 18.50<=bmi<=24.99:
-                        category=3
-                    elif 25.00<=bmi<=30.00:
-                        category=4
-                    elif bmi>30.00:
-                        category=5
-            return category
-        
 
         def get_subgraphs_centrality(self,graph,centrality_type='indegree'):
             '''
@@ -828,7 +269,6 @@ class Population:
             '''
             Increase the PA by 1.17 for the selected influential agents (based on the gabrianeli paper)
             '''
-   
             for node in selected_nodes:
                 # 17%
                 if debug:
@@ -1323,11 +763,11 @@ class Population:
                     node_data_list.append([nodedata[0], nodedata[1]['class'], nodedata[1]['gender'], nodedata[1]['PA'], nodedata[1]['bmi'],nodedata[1]['env'],dict_in_degree[nodedata[0]], dict_out_degree[nodedata[0]],dict_eigen_vector[nodedata[0]],dict_closeness[nodedata[0]],dict_betweenness[nodedata[0]]])
                 
                 #population level data
-                population_list.append([nodedata[1]['class'],total_agents,int((gender_f/total_agents)*100),subgraph.number_of_edges(), round(nx.density(subgraph),2), len(isolated_nodes),round(sum_ind/dividor_ind,2),round(sum_outd/dividor_outd,2),round(sum_close/dividor_close,2),round(sum_beetwn/dividor_beetwn,2),round(nx.average_shortest_path_length(subgraph),2),round(nx.degree_assortativity_coefficient(subgraph),2),round(avg_envorinment_score/total_agents,2),round(avg_bmi_score/total_agents,2)])
+                population_list.append([nodedata[1]['class'],total_agents,int((gender_f/total_agents)*100),subgraph.number_of_edges(), round(nx.density(subgraph),2), len(isolated_nodes),round(sum_ind/dividor_ind,2),round(sum_outd/dividor_outd,2),round(sum_close/dividor_close,2),round(sum_beetwn/dividor_beetwn,2),round(nx.degree_assortativity_coefficient(subgraph),2),round(avg_envorinment_score/total_agents,2),round(avg_bmi_score/total_agents,2)])
                 
             
             #create the dataframes
-            df_population_details = pd.DataFrame(population_list, columns = ["SchoolClassID", "NumberOfAgents", "PercentageFemale", "NumberConnections", "Density", "IsolatedNodes","CentralizationInDegree", "CentralizationOutDegree", "CentralizationCloseness", "CentralizationBetweenness", "AvgShortestPath", "DegreeAssortativity","AverageEnvironmentScore","AverageBMIScore"])
+            df_population_details = pd.DataFrame(population_list, columns = ["SchoolClassID", "NumberOfAgents", "PercentageFemale", "NumberConnections", "Density", "IsolatedNodes","CentralizationInDegree", "CentralizationOutDegree", "CentralizationCloseness", "CentralizationBetweenness", "DegreeAssortativity","AverageEnvironmentScore","AverageBMIScore"])
             
             df_agent_details = pd.DataFrame(node_data_list, columns = ["ParticipantID","SchoolClassID", "Gender", "PA", "BMI", "Environment", "InDegree", "OutDegree", "EigenVector", "Closeness", "Betweenness"])
             
@@ -1335,8 +775,615 @@ class Population:
                 df_population_details.to_excel('../output/population_details.xlsx')
                 df_agent_details.to_excel('../output/agents_details.xlsx')
         
-        
+            df_population_details = df_population_details.sort_values(by=['SchoolClassID'])        
+            df_agent_details = df_agent_details.sort_values(by=['ParticipantID'])
             
             return df_population_details, df_agent_details
 
+        def get_bmi_cat(self,gender,age,bmi):
+    
+            '''
+            Calculating the BMI category based on gender, age and BMI value 
+            Args:
+                gender (Integer): person gender 
+                age (Integer): person age 
+                bmi (Integer): person BMI 
+            Returns:
+                Integer: BMI category value
+            '''
+
+            if (bmi == -1) or (gender == -1) or (age == -1) :
+                return np.nan
+
+            category=0
+            #males
+            if gender==0:
+                if age==2:
+                    if bmi<=13.36:
+                        category=1
+                    elif 13.37<=bmi<=15.13:
+                        category=2
+                    elif 15.14<=bmi<=18.40:
+                        category=3
+                    elif 18.41<=bmi<=20.09:
+                        category=4
+                    elif bmi>20.09:
+                        category=5
+                elif age==3:
+                    if bmi<=13.09:
+                        category=1
+                    elif 13.10<=bmi<=14.73:
+                        category=2
+                    elif 14.74<=bmi<=17.88:
+                        category=3
+                    elif 17.89<=bmi<=19.57:
+                        category=4
+                    elif bmi>19.57:
+                        category=5
+                elif age==4:
+                    if bmi<=12.86:
+                        category=1
+                    elif 12.87<=bmi<=14.42:
+                        category=2
+                    elif 14.43<=bmi<=17.54:
+                        category=3
+                    elif 17.55<=bmi<=19.29:
+                        category=4
+                    elif bmi>19.29:
+                        category=5
+                elif age==5:
+                    if bmi<=12.66:
+                        category=1
+                    elif 12.67<=bmi<=14.20:
+                        category=2
+                    elif 14.21<=bmi<=17.41:
+                        category=3
+                    elif 17.42<=bmi<=19.30:
+                        category=4
+                    elif bmi>19.30:
+                        category=5
+                elif age==6:
+                    if bmi<=12.50:
+                        category=1
+                    elif 12.51<=bmi<=14.06:
+                        category=2
+                    elif 14.07<=bmi<=17.54:
+                        category=3
+                    elif 17.55<=bmi<=19.78:
+                        category=4
+                    elif bmi>19.78:
+                        category=5
+                elif age==7:
+                    if bmi<=12.42:
+                        category=1
+                    elif 12.43<=bmi<=14.03:
+                        category=2
+                    elif 14.04<=bmi<=17.91:
+                        category=3
+                    elif 17.92<=bmi<=20.63:
+                        category=4
+                    elif bmi>20.63:
+                        category=5
+                elif age==8:
+                    if bmi<=12.42:
+                        category=1
+                    elif 12.43<=bmi<=14.14:
+                        category=2
+                    elif 14.15<=bmi<=18.43:
+                        category=3
+                    elif 18.44<=bmi<=21.60:
+                        category=4
+                    elif bmi>21.60:
+                        category=5
+                elif age==9:
+                    if bmi<=12.50:
+                        category=1
+                    elif 12.51<=bmi<=14.34:
+                        category=2
+                    elif 14.35<=bmi<=19.09:
+                        category=3
+                    elif 19.10<=bmi<=22.77:
+                        category=4
+                    elif bmi>22.77:
+                        category=5
+                elif age==10:
+                    if bmi<=12.66:
+                        category=1
+                    elif 12.67<=bmi<=14.63:
+                        category=2
+                    elif 14.64<=bmi<=19.83:
+                        category=3
+                    elif 19.84<=bmi<=24.00:
+                        category=4
+                    elif bmi>24.00:
+                        category=5
+                elif age==11:
+                    if bmi<=12.89:
+                        category=1
+                    elif 12.90<=bmi<=14.96:
+                        category=2
+                    elif 14.97<=bmi<=20.54:
+                        category=3
+                    elif 20.55<=bmi<=25.10:
+                        category=4
+                    elif bmi>25.10:
+                        category=5
+                elif age==12:
+                    if bmi<=13.18:
+                        category=1
+                    elif 13.19<=bmi<=15.34:
+                        category=2
+                    elif 15.35<=bmi<=21.21:
+                        category=3
+                    elif 21.22<=bmi<=26.02:
+                        category=4
+                    elif bmi>26.02:
+                        category=5
+                elif age==13:
+                    if bmi<=13.59:
+                        category=1
+                    elif 13.60<=bmi<=15.83:
+                        category=2
+                    elif 15.84<=bmi<=21.90:
+                        category=3
+                    elif 21.91<=bmi<=26.84:
+                        category=4
+                    elif bmi>26.84:
+                        category=5
+                elif age==14:
+                    if bmi<=14.09:
+                        category=1
+                    elif 14.10<=bmi<=16.40:
+                        category=2
+                    elif 16.41<=bmi<=22.61:
+                        category=3
+                    elif 22.62<=bmi<=27.63:
+                        category=4
+                    elif bmi>27.63:
+                        category=5
+                elif age==15:
+                    if bmi<=14.60:
+                        category=1
+                    elif 14.61<bmi<16.97:
+                        category=2
+                    elif 16.98<=bmi<=23.28:
+                        category=3
+                    elif 23.29<=bmi<=28.30:
+                        category=4
+                    elif bmi>28.30:
+                        category=5
+                elif age==16:
+                    if bmi<=15.12:
+                        category=1
+                    elif 15.13<=bmi<=17.53:
+                        category=2
+                    elif 17.54<=bmi<=23.89:
+                        category=3
+                    elif 23.90<=bmi<=28.88:
+                        category=4
+                    elif bmi>28.88:
+                        category=5
+                elif age==17:
+                    if bmi<=15.60:
+                        category=1
+                    elif 15.61<=bmi<=18.04:
+                        category=2
+                    elif 18.05<=bmi<=24.45:
+                        category=3
+                    elif 24.46<=bmi<=29.41:
+                        category=4
+                    elif bmi>29.41:
+                        category=5
+                elif age==18:
+                    if bmi<=16.00:
+                        category=1
+                    elif 16.01<=bmi<=18.49:
+                        category=2
+                    elif 18.50<=bmi<=24.99:
+                        category=3
+                    elif 25.00<=bmi<=30.00:
+                        category=4
+                    elif bmi>30.00:
+                        category=5
+                            #males
+            if gender==1:
+                if age==2:
+                    if bmi<=13.24:
+                        category=1
+                    elif 13.25<bmi<14.82:
+                        category=2
+                    elif 14.83<=bmi<=18.01:
+                        category=3
+                    elif 18.02<=bmi<=19.81:
+                        category=4
+                    elif bmi>19.81:
+                        category=5
+                elif age==3:
+                    if bmi<=12.98:
+                        category=1
+                    elif 12.99<=bmi<=14.46:
+                        category=2
+                    elif 14.47<=bmi<=17.55:
+                        category=3
+                    elif 17.56<=bmi<=19.36:
+                        category=4
+                    elif bmi>19.36:
+                        category=5
+                elif age==4:
+                    if bmi<=12.73:
+                        category=1
+                    elif 12.74<=bmi<=14.18:
+                        category=2
+                    elif 14.19<=bmi<=17.27:
+                        category=3
+                    elif 17.28<=bmi<=19.15:
+                        category=4
+                    elif bmi>19.15:
+                        category=5
+                elif age==5:
+                    if bmi<=12.50:
+                        category=1
+                    elif 12.51<=bmi<=13.93:
+                        category=2
+                    elif 13.94<=bmi<=17.14:
+                        category=3
+                    elif 17.15<=bmi<=19.17:
+                        category=4
+                    elif bmi>19.17:
+                        category=5
+                elif age==6:
+                    if bmi<=12.32:
+                        category=1
+                    elif 12.33<=bmi<=13.81:
+                        category=2
+                    elif 13.82<=bmi<=17.33:
+                        category=3
+                    elif 17.34<=bmi<=19.65:
+                        category=4
+                    elif bmi>19.65:
+                        category=5
+                elif age==7:
+                    if bmi<=12.26:
+                        category=1
+                    elif 12.27<=bmi<=13.85:
+                        category=2
+                    elif 13.86<=bmi<=17.74:
+                        category=3
+                    elif 17.75<=bmi<=20.51:
+                        category=4
+                    elif bmi>20.51:
+                        category=5
+                elif age==8:
+                    if bmi<=12.31:
+                        category=1
+                    elif 12.32<=bmi<=14.01:
+                        category=2
+                    elif 14.02<=bmi<=18.34:
+                        category=3
+                    elif 18.35<=bmi<=21.57:
+                        category=4
+                    elif bmi>21.57:
+                        category=5
+                elif age==9:
+                    if bmi<=12.44:
+                        category=1
+                    elif 12.45<=bmi<=14.27:
+                        category=2
+                    elif 14.28<=bmi<=19.06:
+                        category=3
+                    elif 19.07<=bmi<=22.81:
+                        category=4
+                    elif bmi>22.81:
+                        category=5
+                elif age==10:
+                    if bmi<=12.64:
+                        category=1
+                    elif 12.65<=bmi<=14.60:
+                        category=2
+                    elif 14.61<=bmi<=19.85:
+                        category=3
+                    elif 19.86<=bmi<=24.11:
+                        category=4
+                    elif bmi>24.11:
+                        category=5
+                elif age==11:
+                    if bmi<=12.95:
+                        category=1
+                    elif 12.96<=bmi<=15.04:
+                        category=2
+                    elif 15.05<=bmi<=20.73:
+                        category=3
+                    elif 20.74<=bmi<=25.42:
+                        category=4
+                    elif bmi>25.42:
+                        category=5
+                elif age==12:
+                    if bmi<=13.39:
+                        category=1
+                    elif 13.40<=bmi<=15.61:
+                        category=2
+                    elif 15.62<=bmi<=21.67:
+                        category=3
+                    elif 21.68<=bmi<=26.67:
+                        category=4
+                    elif bmi>26.67:
+                        category=5
+                elif age==13:
+                    if bmi<=13.92:
+                        category=1
+                    elif 13.93<bmi<16.25:
+                        category=2
+                    elif 16.26<=bmi<=22.57:
+                        category=3
+                    elif 22.58<=bmi<=27.76:
+                        category=4
+                    elif bmi>27.76:
+                        category=5
+                elif age==14:
+                    if bmi<=14.48:
+                        category=1
+                    elif 14.49<=bmi<=16.87:
+                        category=2
+                    elif 16.88<=bmi<=23.33:
+                        category=3
+                    elif 23.34<=bmi<=28.57:
+                        category=4
+                    elif bmi>28.57:
+                        category=5
+                elif age==15:
+                    if bmi<=15.01:
+                        category=1
+                    elif 15.02<=bmi<=17.44:
+                        category=2
+                    elif 17.45<=bmi<=23.93:
+                        category=3
+                    elif 23.94<=bmi<=29.11:
+                        category=4
+                    elif bmi>29.11:
+                        category=5
+                elif age==16:
+                    if bmi<=15.46:
+                        category=1
+                    elif 15.47<=bmi<=17.90:
+                        category=2
+                    elif 17.91<=bmi<=24.36:
+                        category=3
+                    elif 24.37<=bmi<=29.43:
+                        category=4
+                    elif bmi>29.43:
+                        category=5
+                elif age==17:
+                    if bmi<=15.78:
+                        category=1
+                    elif 15.79<=bmi<=18.24:
+                        category=2
+                    elif 18.25<=bmi<=24.69:
+                        category=3
+                    elif 24.70<=bmi<=29.69:
+                        category=4
+                    elif bmi>29.69:
+                        category=5
+                elif age==18:
+                    if bmi<=15.99:
+                        category=1
+                    elif 16.00<=bmi<=18.49:
+                        category=2
+                    elif 18.50<=bmi<=24.99:
+                        category=3
+                    elif 25.00<=bmi<=30.00:
+                        category=4
+                    elif bmi>30.00:
+                        category=5
+            return category
+        
+        
+class PeerNominatedDataPopulation(Population):
+    
+    def __init__(self,name,input_args):
+        self.name = name
+        self.input_args = input_args
+        self.graph = self.create_population(nx.DiGraph())
+        
+    def create_population(self,graph):
+
+                '''
+                Create graph's weights between edges depending on the chosen formula. 
+                The connections are created and weighted based on questionnaire responses. 
+                Use all (the whole set of questions), gen (only the general questions) or friends (only the friends questions) to create the weights
+
+                Args:
+                    graph (Graph): input graph
+                    label (str): label of the graph- gen, all or friends graph
+
+                Returns:
+                Graph: updated graph with weighted connections.
+
+                '''
+
+                # CREATE CONNECTIONS
+                graph = graph
+                formula = ''
+
+                list_participants = self.input_args['participants']
+                label = self.input_args['network']
+                class_list = self.input_args['classes']
+
+
+                nominations = pd.read_csv(self.input_args['peer_nomination_file'], sep=';', header=0)
+                nominations = nominations[nominations.Child.isin(list_participants)]
+                nominations = nominations[nominations.Alter.isin(list_participants)] 
+
+                # Read formula to calculate the weight for the connections
+                try:
+                    if label is None:
+                        formula = json.loads(open('../input/connections.json').read())
+                    elif label=='all':
+                        formula = json.loads(open('../input/connections_all.json').read())
+                    elif label=='gen':
+                        formula = json.loads(open('../input/connections_gen.json').read())
+                    elif label=='friend':
+                        formula = json.loads(open('../input/connections_friend.json').read())
+                except Exception as ex:
+                    print('File {}settings/connections_{}.json does not exist!')
+                    print(ex)
+                    return
+
+                # Sum of all weights from the formula
+                max_score = sum(formula.values())
+
+                # Create a dictionary with the connections and weights
+                connections_dict = {}
+                for child in list(list_participants):
+                    connections_dict[child] = {}
+
+                # To avoid repetition of nominations in different waves
+                nominations_list = []
+
+                for line in nominations[['Child', 'Alter', 'Variable']].iterrows():
+                    (ch, nom, var) = line[1]  
+                    # Verify if nominated is in the list of participants (pp)
+                    if nom in list_participants and (ch, nom, var) not in nominations_list:
+                        # Add value in the key
+                        connections_dict[ch][nom] = connections_dict[ch].get(nom, 0) + 1*formula[var]
+                        nominations_list.append((ch, nom, var))
+
+                # Make a dataframe and normalize the values for the edges
+                connections_df = pd.DataFrame(connections_dict).fillna(0)/max_score
+                connections_dict = connections_df.to_dict()
+                # eric approach : child(node[0])-succ;nominated(node[1])-pred;weight
+                # thabo approach: child(node[0])-pred;nominated(node[1])-succ;weight
+
+                #An arrow (x, y) is considered to be directed from x to y; y is called the head and x is called the tail of the arrow; y is said to be a direct successor of x and x is said to be a direct predecessor of y.
+
+                # Create the edges in the graph
+                for node in connections_dict.items():
+                    pred = node[0]
+                    origins = node[1]
+                    for succ, weight in origins.items():
+                        if weight > 0:
+                            graph.add_edge(pred,succ,weight=weight)
+            #                 print('pred: '+ repr(pred)+' succ:'+repr(succ)+' weight:'+repr(weight))
+
+
+
+
+                # POPULATE THE AGENTS
+                PA_dict = self.assign_PA(metric='steps')
+                gender_dict, age_dict, class_dict = self.assign_basic()
+                environment_dict = self.assign_environment()
+                bmi_dict = self.assign_bmi()
+
+                PA_dict = self.fix_float64(PA_dict)
+                gender_dict = self.fix_float64(gender_dict)
+                age_dict = self.fix_float64(age_dict)
+                class_dict = self.fix_float64(class_dict)
+                environment_dict = self.fix_float64(environment_dict)
+                bmi_dict = self.fix_float64(bmi_dict)
+
+                nx.set_node_attributes(graph, values=PA_dict, name='PA')
+                nx.set_node_attributes(graph, values=gender_dict, name='gender')
+                nx.set_node_attributes(graph, values=age_dict, name='age')
+                nx.set_node_attributes(graph, values=class_dict, name='class')
+                nx.set_node_attributes(graph, values=environment_dict, name='env')
+                nx.set_node_attributes(graph, values=bmi_dict, name='bmi')
+
+                # Adding category for the nodes
+                obesity_class = {}
+                for node in graph.nodes():
+                    obesity_class[node] = self.get_bmi_cat(gender_dict[node], age_dict[node], bmi_dict[node])
+
+                nx.set_node_attributes(graph, values=obesity_class, name='bmi_cat')
+
+
+
+                # Save the connections file in the results folder
+
+    #             if label is None:
+    #                 connections_df.to_csv('../output/connections.csv')
+    #             else:
+    #                 connections_df.to_csv(('../output/connections_{1}.csv').format(label))
+
+                return graph
+
+
+class CommunicationDataPopulation(Population):
+    
+    def __init__(self,name,input_args):
+        self.name = name
+        self.input_args = input_args
+        self.graph = self.create_population(nx.DiGraph())
+        
+    def create_population(self,graph):
+
+            '''
+            Create graph's weights between edges depending on the chosen formula. 
+            The connections are created and weighted based on questionnaire responses. 
+            Use all (the whole set of questions), gen (only the general questions) or friends (only the friends questions) to create the weights
+
+            Args:
+                graph (Graph): input graph
+                label (str): label of the graph- gen, all or friends graph
+
+            Returns:
+            Graph: updated graph with weighted connections.
+
+            '''
+            graph = graph
+            classes = self.input_args['classes']
+            
+            df_comm = pd.read_csv(self.input_args['communications1_file'], sep=';', header=0)
+            df_comm = df_comm.append(pd.read_csv(self.input_args['communications2_file'], sep=';', header=0))
+            df_comm = df_comm[df_comm.Type=="my"]
+            df_comm = df_comm[df_comm.Class.isin(classes)]
+            df_comm = df_comm[df_comm.Child.isin(self.input_args['participants'])]
+
+
+            df_comm = df_comm.astype({'Participant': 'float64'})
+
+            df_participants = df_comm.groupby(['Class','Participant','Child'])['UMID'].count().reset_index()
+            df_participants = df_participants[['Class','Participant','Child']]
+            
+            #create the connections - edges
+            for cl in classes:
+                # the weight is according to version 1 
+                df_temp = df_comm[df_comm.Class.isin([cl])]
+                df_temp = df_temp.groupby(["Participant","RecipientChild"])["UMID"].count().reset_index(name='NumberMessages')
+                df_temp['Weight'] = df_temp['NumberMessages']/max(df_temp['NumberMessages'])
+                children_in_class = df_temp.Participant.unique()
+
+                for index, row in df_temp.iterrows():
+                    #only if the recepient is member of the same class - excluded intraclass communication
+                    # this is not 100% ok, I need a list of all participants per class!
+                    if(row[1] in children_in_class):
+                        graph.add_edge(df_participants.loc[df_participants['Participant'] == row[0], 'Child'].iloc[0],df_participants.loc[df_participants['Participant'] == row[1], 'Child'].iloc[0],weight=row[3])
+    
+            # POPULATE THE AGENTS
+            PA_dict = self.assign_PA(metric='steps')
+            gender_dict, age_dict, class_dict = self.assign_basic()
+            environment_dict = self.assign_environment()
+            bmi_dict = self.assign_bmi()
+
+            PA_dict = self.fix_float64(PA_dict)
+            gender_dict = self.fix_float64(gender_dict)
+            age_dict = self.fix_float64(age_dict)
+            class_dict = self.fix_float64(class_dict)
+            environment_dict = self.fix_float64(environment_dict)
+            bmi_dict = self.fix_float64(bmi_dict)
+
+            nx.set_node_attributes(graph, values=PA_dict, name='PA')
+            nx.set_node_attributes(graph, values=gender_dict, name='gender')
+            nx.set_node_attributes(graph, values=age_dict, name='age')
+            nx.set_node_attributes(graph, values=class_dict, name='class')
+            nx.set_node_attributes(graph, values=environment_dict, name='env')
+            nx.set_node_attributes(graph, values=bmi_dict, name='bmi')
+            # Adding category for the nodes
+            obesity_class = {}
+            for node in graph.nodes():                
+                obesity_class[node] = self.get_bmi_cat(gender_dict[node], age_dict[node], bmi_dict[node])
+
+            nx.set_node_attributes(graph, values=obesity_class, name='bmi_cat')
+
                 
+                
+            return graph   
+

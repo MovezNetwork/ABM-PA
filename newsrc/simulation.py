@@ -25,7 +25,8 @@ REPLY: as discussed, we should read about Python's garbage collector and decide 
 class Simulation:
     def __init__(self, **args):
         self.input_args = self.load_input_args()
-        self.population = p.Population('MyMovez school classes', self.input_args)
+        self.PeerNominatedDataPopulation = p.PeerNominatedDataPopulation('Peer-Nominated data population', self.input_args)
+        self.CommunicationDataPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args)
         self.model = m.DiffusionModel('Gabrianelli Diffusion Model', self.input_args)
 
 
@@ -39,7 +40,7 @@ class Simulation:
         return input_args
     
     
-    def simulate_interventions(self,time):
+    def simulate_interventions(self,time,population_name):
         
         percent = self.input_args['percent'] 
         generateGephiFiles = self.input_args['generateGephiFiles'] 
@@ -51,18 +52,25 @@ class Simulation:
         #outcomes of the intervention
         simulation_outcomes_child = {}
         simulation_outcomes_avg = {}
-        for classroom_population in self.population.get_class_graphs(self.population.graph):
+        
+        if(population_name == 'peer'):
+            population = self.PeerNominatedDataPopulation
+        elif(population_name == 'communication'):
+            population = self.CommunicationDataPopulation
+        
+        for classroom_population in population.get_class_graphs(population.graph):
 
             classroom_population_id = list(classroom_population.nodes(data='class'))[1][1]
             simulation_outcomes_child[str(classroom_population_id)] = {}
             simulation_outcomes_avg[str(classroom_population_id)] = {}
             simulation_selected_agents[str(classroom_population_id)] = {}
             
-            c = classroom_population
+            
 
             for intervention in intervention_strategies:
+                c = classroom_population.copy()
                 # modifies the PA of particular agents selected as influential 
-                agent_selection_tuple = self.population.select_influential_agents(classroom_population, percent, intervention, False)
+                agent_selection_tuple = population.select_influential_agents(c, percent, intervention, False)
                 # updated graph with enhanced PA in influential agents
                 cl_pop = agent_selection_tuple[0]
                 selected_agents = agent_selection_tuple[1]

@@ -782,6 +782,15 @@ class Population:
                     if(nodedata[1]['gender']==1.0):
                         gender_f = gender_f + 1
                         
+                    #calculating the average weight    
+                    num_edges = len(subgraph.edges(nodedata[0],data=True))
+                    avg_weight = 0
+                    if(num_edges > 0):
+                        for (u, v, wt) in subgraph.edges(nodedata[0],data=True):
+                            avg_weight = avg_weight +  wt['weight']
+
+                        avg_weight = avg_weight/num_edges    
+                        
                     avg_envorinment_score = avg_envorinment_score + nodedata[1]['env']    
                     avg_bmi_score = avg_bmi_score + nodedata[1]['bmi'] 
                     #isolated nodes - based on in-degree for now.
@@ -789,7 +798,7 @@ class Population:
                         isolated_nodes.append(nodedata[0])
                         
                     #participant-level data
-                    node_data_list.append([nodedata[0], nodedata[1]['class'], nodedata[1]['gender'], nodedata[1]['PA'], nodedata[1]['bmi'],nodedata[1]['env'],dict_in_degree[nodedata[0]], dict_out_degree[nodedata[0]],dict_eigen_vector[nodedata[0]],dict_closeness[nodedata[0]],dict_betweenness[nodedata[0]]])
+                    node_data_list.append([nodedata[0], nodedata[1]['class'], nodedata[1]['gender'], nodedata[1]['PA'], nodedata[1]['bmi'],nodedata[1]['env'],dict_in_degree[nodedata[0]], dict_out_degree[nodedata[0]],dict_eigen_vector[nodedata[0]],dict_closeness[nodedata[0]],dict_betweenness[nodedata[0]],avg_weight])
                 
                 #population level data
                 population_list.append([nodedata[1]['class'],total_agents,int((gender_f/total_agents)*100),subgraph.number_of_edges(), round(nx.density(subgraph),2), len(isolated_nodes),round(sum_ind/dividor_ind,2),round(sum_outd/dividor_outd,2),round(sum_close/dividor_close,2),round(sum_beetwn/dividor_beetwn,2),round(nx.degree_assortativity_coefficient(subgraph),2),round(avg_envorinment_score/total_agents,2),round(avg_bmi_score/total_agents,2)])
@@ -798,7 +807,7 @@ class Population:
             #create the dataframes
             df_population_details = pd.DataFrame(population_list, columns = ["SchoolClassID", "NumberOfAgents", "PercentageFemale", "NumberConnections", "Density", "IsolatedNodes","CentralizationInDegree", "CentralizationOutDegree", "CentralizationCloseness", "CentralizationBetweenness", "DegreeAssortativity","AverageEnvironmentScore","AverageBMIScore"])
             
-            df_agent_details = pd.DataFrame(node_data_list, columns = ["ParticipantID","SchoolClassID", "Gender", "PA", "BMI", "Environment", "InDegree", "OutDegree", "EigenVector", "Closeness", "Betweenness"])
+            df_agent_details = pd.DataFrame(node_data_list, columns = ["ParticipantID","SchoolClassID", "Gender", "PA", "BMI", "Environment", "InDegree", "OutDegree", "EigenVector", "Closeness", "Betweenness","Average_Weight"])
             
             if self.input_args['writeToExcel']:
                 df_population_details.to_excel('../output/population_details.xlsx')

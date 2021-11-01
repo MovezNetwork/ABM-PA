@@ -85,8 +85,19 @@ class Simulation:
         
         if writeToExcel:
             self.interventionResultsToExcel(simulation_outcomes_child)
+            
+        df_agents_list = []
+        for outer_dict in simulation_selected_agents.items():
+            for intv in outer_dict[1]:
+                if(intv != 'nointervention'):
+                    df_agents_list.append([outer_dict[0],intv,outer_dict[1][intv]])
+
+        df_agents = pd.DataFrame(df_agents_list, columns = ["SchoolClass", "Intervention", "InfluenceAgents"])
+        df_agents.to_excel('selected_agents_'+ population_name +'.xlsx')  
+
+
         
-        return simulation_outcomes_child,simulation_outcomes_avg,simulation_selected_agents
+        return simulation_outcomes_child,simulation_outcomes_avg,df_agents
             
     def get_intervention_PA_dictionary(self,graph):
         results_dict = dict(graph.nodes(data=True))

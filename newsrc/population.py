@@ -395,29 +395,20 @@ class Population:
         #     print('------------------------------------------------------------------')
         #     print('Getting {0}% of the nodes for centrality intervention'.format(perc))
         #     print('------------------------------------------------------------------')
-
             for c, data in class_dictionary.items():
-
                 num_selected = round(len(data)*perc)
                 total = len(data)
                 # Select the info about centrality and order the list
                 centrality_list = [(item[0],item[4],item[1],item[6]) for item in data]
-        #         centrality_list = [(item[0],item[4]) for item in data]
-
-                # centrality_list : a list of tuples...
-                centrality_list.sort(key=lambda tup: tup[1],reverse=True)
-
-                # all nodes just for information purposes....
-                all_nodes=centrality_list
-                all_nodes_id = [item[0] for item in all_nodes]      
-                all_nodes_centrality=[item[1] for item in all_nodes]
-                all_nodes_pal=[item[3] for item in all_nodes]
-                all_nodes_gender=[item[2] for item in all_nodes]    
-
-                selected_nodes_centrality,selected_nodes_id,selected_nodes_pal, selected_nodes_gender = self.getRandomNodes(num_selected,all_nodes_centrality,all_nodes_id,all_nodes_pal,all_nodes_gender)
-
-                list_selected = list_selected + selected_nodes_id    
-
+        
+                #first sort by centrality measure, then by pal
+                centrality_list = sorted(centrality_list, key = lambda x: (-x[1], -x[3]))
+#                 print('NEW sorted', centrality_list)
+                selected_nodes = centrality_list[0:num_selected]
+                selected_nodes_id = [item[0] for item in selected_nodes]
+#                 print('NEW selected_nodes', selected_nodes)                
+                list_selected = list_selected + selected_nodes_id  
+                
             return list_selected
 
 

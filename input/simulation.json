@@ -35,6 +35,7 @@
     "I_PA": 0.005507766256539898,
     "agent_environment_file" : "../data/W6_Main_Questions.csv",
     "agent_pal_file": "../data/Fitbit_Imputation_FINAL.csv",
+    "assign_PA_random" : false,
     "agent_bmi_file" : "../data/BMI_final.csv",
     "agent_personal_file" : "../data/Participant_info_Final.csv",
     "peer_nomination_file": "../data/W5_Sociometric_long.csv",

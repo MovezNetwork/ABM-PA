@@ -1208,10 +1208,9 @@ class Population:
         
 class PeerNominatedDataPopulation(Population):
     
-    def __init__(self,name,input_args,ran):
+    def __init__(self,name,input_args):
         self.name = name
         self.input_args = input_args
-        self.ran = ran
         self.graph = self.create_population(nx.DiGraph())
 
     def create_population(self,graph):
@@ -1297,7 +1296,7 @@ class PeerNominatedDataPopulation(Population):
 
                 # POPULATE THE AGENTS
                 PA_dict = self.assign_PA(metric='steps')
-                if(self.ran == 'yes'):
+                if(self.input_args['assign_PA_random']):
                     PA_dict = self.assign_PA_random(PA_dict)
 
                 gender_dict, age_dict, class_dict = self.assign_basic()
@@ -1339,10 +1338,9 @@ class PeerNominatedDataPopulation(Population):
 
 class CommunicationDataPopulation(Population):
     
-    def __init__(self,name,input_args, ran):
+    def __init__(self,name,input_args):
         self.name = name
         self.input_args = input_args
-        self.ran = ran
         self.graph = self.create_population(nx.DiGraph())
 
     def create_population(self,graph):
@@ -1391,7 +1389,7 @@ class CommunicationDataPopulation(Population):
     
             # POPULATE THE AGENTS
             PA_dict = self.assign_PA(metric='steps')
-            if (self.ran == 'yes'):
+            if (self.input_args['assign_PA_random']):
                 PA_dict = self.assign_PA_random(PA_dict)
 
             gender_dict, age_dict, class_dict = self.assign_basic()

@@ -12,9 +12,11 @@ class Model:
     
 class DiffusionModel(Model):
     
-    def __init__(self,name,input_args):
+    def __init__(self, name, input_args):
         self.name = name
         self.input_args = input_args
+        self.thres_PA = self.input_args['thres_PA']
+        self.I_PA = self.input_args['I_PA']
       
     
     def execute(self, graph, t):
@@ -70,14 +72,14 @@ class DiffusionModel(Model):
                 '''
                 |inf_PA_env| <= thres_PA_l  or thres_PA_h <= |inf_PA_env|
                 '''
-                if (abs(inf_PA_env) <= self.input_args['thres_PA']):
+                if (abs(inf_PA_env) <= self.thres_PA):
                     # Do nothing
                     PA_new = PA
                 else:
                     if inf_PA_env > 0:
-                        PA_new = PA * (1 + self.input_args['I_PA'])    
+                        PA_new = PA * (1 + self.I_PA)
                     elif inf_PA_env < 0:
-                        PA_new = PA * (1 - self.input_args['I_PA'])
+                        PA_new = PA * (1 - self.I_PA)
                     else:
                         PA_new = PA
 
@@ -85,6 +87,11 @@ class DiffusionModel(Model):
 
         return graph   
 
+    def setThresholdPA(self, thres_PA_new):
+        self.thres_PA = thres_PA_new
+
+    def setIPA(self, I_PA_new):
+        self.I_PA = I_PA_new
 
     def get_empirical_pa_data():
         '''

@@ -6,7 +6,6 @@ import networkx as nx
 import numpy as np
 import os
 import pandas as pd
-import re
 import random
 
 
@@ -17,8 +16,8 @@ class Population:
             
         def create_population(self):
             pass
-        
-            
+
+
         def assign_PA(self,metric='steps'):
 
             '''
@@ -31,7 +30,7 @@ class Population:
                 dictionary: Dictionary with average steps per child and per wave.
             '''            
             
-            df_pal = pd.read_csv(self.input_args['agent_pal_file'], sep=';', header=0)
+            df_pal = pd.read_csv(self.input_args['agent_pal_file'], sep=';', header=0, encoding='latin-1')
             df_pal = df_pal[df_pal['Child'].isin(self.input_args['participants'])]
 
             df_pal = df_pal.groupby(['Child', 'Wave']).mean()['Steps'].reset_index()
@@ -40,6 +39,36 @@ class Population:
             # Avg wave 5 data is assigned as PAL
             return dict(df_pal[5])
 
+        def assign_PA_random(self, dict):
+            '''
+            Sample 408 physical activity levels based on data from wave 1
+            '''
+
+            # Read data
+            fitbit_new = pd.read_csv(self.input_args['agent_pal_file'], sep=';', header=0)
+            steps_mean_wave_new = fitbit_new.groupby(['Child', 'Wave']).mean()['Steps'].reset_index()
+            steps_mean_wave_new.Steps = steps_mean_wave_new.Steps * 0.000153
+            steps_mean_wave_new = steps_mean_wave_new.pivot(index='Child', columns='Wave')['Steps']
+
+            steps_wave1 = steps_mean_wave_new[1]
+            PAL_wave1 = steps_wave1.dropna()
+
+            # number of agents
+            n = len(dict.keys())
+
+            # sample from data
+            np.random.seed(1234)
+            r = np.random.random_sample(n)
+            pal = np.quantile(PAL_wave1, q=r)
+
+            # assign to dictionary
+            i = 0
+            for key in dict.keys():
+                dict[key] = pal[i]
+                #print(i, "key", key, " r ", r[i], " pal ", pal[i] )
+                i = i + 1
+
+            return dict
 
 
         def assign_environment(self):
@@ -52,7 +81,7 @@ class Population:
                 dictionary: Dictionary with environment score per child.
             '''
 
-            env = pd.read_csv(self.input_args['agent_environment_file'], sep=';', header=0)
+            env = pd.read_csv(self.input_args['agent_environment_file'], sep=';', header=0, encoding='latin-1')
             env = env[["Child","GEN_FAS_computer_A01" ,"GEN_FAS_car_A01", "GEN_FAS_vacation_A01", "GEN_FAS_ownroom_A01"]]
 
             env = env[env['Child'].isin(self.input_args['participants'])]
@@ -82,7 +111,7 @@ class Population:
             Returns:
                 dictionary: Dictionary with BMI score per child.
             '''
-            bmi = pd.read_csv(self.input_args['agent_bmi_file'], sep=';', header=0)
+            bmi = pd.read_csv(self.input_args['agent_bmi_file'], sep=';', header=0, encoding='latin-1')
             bmi = bmi[bmi.Wave == 5]
             bmi = bmi[bmi.Child.isin(self.input_args['participants'])]
             bmi = bmi[['Child', 'BMI']]
@@ -124,7 +153,7 @@ class Population:
             '''
 
 
-            pp = pd.read_csv(self.input_args['agent_personal_file'], sep=';', header=0)
+            pp = pd.read_csv(self.input_args['agent_personal_file'], sep=';', header=0, encoding='latin-1')
             pp = pp[pp.Child.isin(self.input_args['participants'])]
             gender_df = pp.groupby(['Child']).mean()['Sex']
             age_df = pp.groupby(['Child']).mean()['Age_W5']
@@ -149,7 +178,7 @@ class Population:
                 dataframe: physical activity data (steps) per child and wave.
             '''
 
-            df_pal = pd.read_csv(self.input_args['agent_pal_file'], sep=';', header=0)
+            df_pal = pd.read_csv(self.input_args['agent_pal_file'], sep=';', header=0, encoding='latin-1')
             df_pal = df_pal[df_pal['Child'].isin(self.input_args['participants'])]
 
             df_pal = df_pal.groupby(['Child', 'Wave']).mean()['Steps'].reset_index()
@@ -1179,11 +1208,12 @@ class Population:
         
 class PeerNominatedDataPopulation(Population):
     
-    def __init__(self,name,input_args):
+    def __init__(self,name,input_args,ran):
         self.name = name
         self.input_args = input_args
+        self.ran = ran
         self.graph = self.create_population(nx.DiGraph())
-        
+
     def create_population(self,graph):
 
                 '''
@@ -1209,7 +1239,7 @@ class PeerNominatedDataPopulation(Population):
                 class_list = self.input_args['classes']
 
 
-                nominations = pd.read_csv(self.input_args['peer_nomination_file'], sep=';', header=0)
+                nominations = pd.read_csv(self.input_args['peer_nomination_file'], sep=';', header=0, encoding='latin-1')
                 nominations = nominations[nominations.Child.isin(list_participants)]
                 nominations = nominations[nominations.Alter.isin(list_participants)] 
 
@@ -1265,10 +1295,11 @@ class PeerNominatedDataPopulation(Population):
             #                 print('pred: '+ repr(pred)+' succ:'+repr(succ)+' weight:'+repr(weight))
 
 
-
-
                 # POPULATE THE AGENTS
                 PA_dict = self.assign_PA(metric='steps')
+                if(self.ran == 'yes'):
+                    PA_dict = self.assign_PA_random(PA_dict)
+
                 gender_dict, age_dict, class_dict = self.assign_basic()
                 environment_dict = self.assign_environment()
                 bmi_dict = self.assign_bmi()
@@ -1308,11 +1339,12 @@ class PeerNominatedDataPopulation(Population):
 
 class CommunicationDataPopulation(Population):
     
-    def __init__(self,name,input_args):
+    def __init__(self,name,input_args, ran):
         self.name = name
         self.input_args = input_args
+        self.ran = ran
         self.graph = self.create_population(nx.DiGraph())
-        
+
     def create_population(self,graph):
 
             '''
@@ -1331,8 +1363,8 @@ class CommunicationDataPopulation(Population):
             graph = graph
             classes = self.input_args['classes']
             
-            df_comm = pd.read_csv(self.input_args['communications1_file'], sep=';', header=0)
-            df_comm = df_comm.append(pd.read_csv(self.input_args['communications2_file'], sep=';', header=0))
+            df_comm = pd.read_csv(self.input_args['communications1_file'], sep=';', header=0, encoding='latin-1')
+            df_comm = df_comm.append(pd.read_csv(self.input_args['communications2_file'], sep=';', header=0, encoding='latin-1'))
             df_comm = df_comm[df_comm.Type=="my"]
             df_comm = df_comm[df_comm.Class.isin(classes)]
             df_comm = df_comm[df_comm.Child.isin(self.input_args['participants'])]
@@ -1359,6 +1391,9 @@ class CommunicationDataPopulation(Population):
     
             # POPULATE THE AGENTS
             PA_dict = self.assign_PA(metric='steps')
+            if (self.ran == 'yes'):
+                PA_dict = self.assign_PA_random(PA_dict)
+
             gender_dict, age_dict, class_dict = self.assign_basic()
             environment_dict = self.assign_environment()
             bmi_dict = self.assign_bmi()

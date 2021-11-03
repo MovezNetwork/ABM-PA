@@ -31,6 +31,7 @@
     "intervention_color" : ["black","red", "green", "yellow", "blue"],
     "create_doc" : true,
     "save_png": true,
+    "random_seed": 1234,
     "thres_PA": 0.09420487943939887,
     "I_PA": 0.005507766256539898,
     "agent_environment_file" : "../data/W6_Main_Questions.csv",

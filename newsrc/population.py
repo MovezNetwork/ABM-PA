@@ -57,7 +57,7 @@ class Population:
             n = len(dict.keys())
 
             # sample from data
-            np.random.seed(1234)
+            np.random.seed(self.input_args['random_seed'])
             r = np.random.random_sample(n)
             pal = np.quantile(PAL_wave1, q=r)
 

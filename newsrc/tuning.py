@@ -17,14 +17,14 @@ class Tuning:
 
     def __init__(self):
         self.input_args = self.load_input_args()
-        self.nominationPopulation = p.PeerNominatedDataPopulation('Peer-Nominated data population', self.input_args, 'yes')
-        self.communicationPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args, 'yes')
+        self.nominationPopulation = p.PeerNominatedDataPopulation('Peer-Nominated data population', self.input_args)
+        self.communicationPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args)
         self.model = m.DiffusionModel('Diffusion Model', self.input_args)
 
 
     def load_input_args(self):
         try:
-            input_args = json.loads(open('../input/tuning.json').read())
+            input_args = json.loads(open('../input/simulation.json').read())
         except Exception as ex:
             print('tuning.json does not exist!')
             print(ex)
@@ -286,9 +286,9 @@ class Tuning:
 
         minn = 0.00001
 
-        max_I_PA = 0.05
-        inf_I_PA = -0.005
-        sup_I_PA = 0.005
+        max_I_PA = 0.4
+        inf_I_PA = -0.05
+        sup_I_PA = 0.05
 
         maxn_thres = 0.9999
         inf_thres = -0.1

@@ -40,12 +40,18 @@ class Simulation:
         return input_args
     
     
-    def simulate_interventions(self,time,population_name):
+    def simulate_interventions(self,time,population_name,threshold,ipa):
         
         percent = self.input_args['percent'] 
         generateGephiFiles = self.input_args['generateGephiFiles'] 
         writeToExcel = self.input_args['writeToExcel'] 
         intervention_strategies = self.input_args['intervention_strategy']
+
+        
+        # set model thresholds
+        self.model.setThresholdPA(threshold)
+        self.model.setIPA(ipa)
+
 
         #selected infuential agents
         simulation_selected_agents = {}

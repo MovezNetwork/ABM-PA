@@ -57,7 +57,7 @@ class Population:
             n = len(dict.keys())
 
             # sample from data
-            np.random.seed(self.input_args['random_seed'])
+            np.random.seed(1234)
             r = np.random.random_sample(n)
             pal = np.quantile(PAL_wave1, q=r)
 
@@ -809,6 +809,23 @@ class Population:
             
             return df_population_details, df_agent_details
 
+        def get_networks_similarity(self,g1,g2):
+            max_edges = g1.number_of_nodes()**2-g1.number_of_nodes()
+            true_positive=set(g1.edges()).intersection(set(g2.edges()))
+            # g1.diff(g2) -> edges that are found in GT but not discovered in BT
+            false_negative=set(g1.edges()).difference(set(g2.edges()))
+            # g1.diff(g2) -> edges that are found in BT but not discovered in GT
+            false_positive=set(g2.edges()).difference(set(g1.edges()))
+            # not sure if true_negative should be actually 0, union or set(g1.edges()).
+            # I think the last makes most sense since it represents the difference between all possible edges and the ones that are actually in the ground truth data, i.e. the nomination-based graph
+            union=set(g1.edges()).union(set(g2.edges()))
+            true_negative=max_edges-len(union)
+            d1=(len(true_positive)+true_negative) if (len(true_positive)+true_negative)>0 else -1
+            d2=(len(true_positive)+true_negative+len(false_negative)+len(false_positive)) if (len(true_positive)+true_negative+len(false_negative)+len(false_positive))>0 else -1
+            networks_similarity=d1/d2
+
+            return networks_similarity
+        
         def get_bmi_cat(self,gender,age,bmi):
     
             '''
@@ -1419,4 +1436,5 @@ class CommunicationDataPopulation(Population):
                 
                 
             return graph   
+
 

@@ -99,7 +99,7 @@ class Simulation:
                     df_agents_list.append([outer_dict[0],intv,outer_dict[1][intv]])
 
         df_agents = pd.DataFrame(df_agents_list, columns = ["SchoolClass", "Intervention", "InfluenceAgents"])
-        df_agents.to_excel('selected_agents_'+ population_name +'.xlsx')  
+        df_agents.to_excel('selected_agents_'+ population_name + '_'+str(threshold) + '_'+str(ipa) +'.xlsx')  
 
 
         

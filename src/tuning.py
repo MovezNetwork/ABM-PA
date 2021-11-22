@@ -9,8 +9,8 @@ import random
 from pprint import pprint
 from time import time
 
-import newsrc.population as p
-import newsrc.model as m
+import src.population as p
+import src.model as m
 
 class Tuning:
 

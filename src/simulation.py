@@ -13,8 +13,8 @@ from scipy.stats import pearsonr
 import seaborn as sns
 from itertools import chain
 
-import newsrc.population as p
-import newsrc.model as m
+import src.population as p
+import src.model as m
 
 '''
 TODO: should we include a "reset"(= clean up some objects; so you can restart a run without running init again) & "stop" (= clean up all objects) method

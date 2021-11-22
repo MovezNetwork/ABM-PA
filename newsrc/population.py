@@ -706,7 +706,7 @@ class Population:
                 subgraph.graph['class']=c
 
                 if(writeToFile):
-                        directory='../output/Class'+repr(int(c))
+                        directory='../output/class'+repr(int(c))
                         if not os.path.exists(directory):
                             os.makedirs(directory)
                         g_file = directory+'/class_' + repr(c) + '_' + label + '.gexf'
@@ -1301,6 +1301,7 @@ class PeerNominatedDataPopulation(Population):
 
                 #An arrow (x, y) is considered to be directed from x to y; y is called the head and x is called the tail of the arrow; y is said to be a direct successor of x and x is said to be a direct predecessor of y.
 
+
                 # Create the edges in the graph
                 for node in connections_dict.items():
                     pred = node[0]
@@ -1309,7 +1310,6 @@ class PeerNominatedDataPopulation(Population):
                         if weight > 0:
                             graph.add_edge(pred,succ,weight=weight)
             #                 print('pred: '+ repr(pred)+' succ:'+repr(succ)+' weight:'+repr(weight))
-
 
                 # POPULATE THE AGENTS
                 PA_dict = self.assign_PA(metric='steps')
@@ -1389,7 +1389,7 @@ class CommunicationDataPopulation(Population):
 
             df_participants = df_comm.groupby(['Class','Participant','Child'])['UMID'].count().reset_index()
             df_participants = df_participants[['Class','Participant','Child']]
-            
+
             #create the connections - edges
             for cl in classes:
                 # the weight is according to version 1 
@@ -1403,7 +1403,8 @@ class CommunicationDataPopulation(Population):
                     # this is not 100% ok, I need a list of all participants per class!
                     if(row[1] in children_in_class):
                         graph.add_edge(df_participants.loc[df_participants['Participant'] == row[0], 'Child'].iloc[0],df_participants.loc[df_participants['Participant'] == row[1], 'Child'].iloc[0],weight=row[3])
-    
+
+
             # POPULATE THE AGENTS
             PA_dict = self.assign_PA(metric='steps')
             if (self.input_args['assign_PA_random']):

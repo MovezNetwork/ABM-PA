@@ -2,7 +2,6 @@
 #from codes.simulatePA import diffuse_behavior_PA
 
 
-import networkx as nx
 import numpy as np
 import json
 import pandas as pd
@@ -21,15 +20,17 @@ class Tuning:
         self.communicationPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args)
         self.model = m.DiffusionModel('Diffusion Model', self.input_args)
 
-
     def load_input_args(self):
         try:
             input_args = json.loads(open('../input/simulation.json').read())
         except Exception as ex:
-            print('tuning.json does not exist!')
+            print('simulation.json does not exist!')
             print(ex)
 
         return input_args
+
+    def execute(self):
+        pass
 
     def simulate(self, pop, thres, ipa, time):
 
@@ -58,52 +59,72 @@ class Tuning:
 
         return simulation_outcomes_child, simulation_outcomes_avg
 
-    def execute(self, thres, ipa, t, population_name):
+    def get_error(self, graph, empirical):
         '''
-        Perform a grid search:
-        1. define parameter space: ranging eahc parameter from 0 to 1 with steps of 0.05 (bins=20)
-        2. run the model for each parameter combination
-        3. assesses the goodness-of-fit
+        Calculates the sum of squared errors (SSE)
         '''
-        generateGephiFiles = self.input_args['generateGephiFiles']
-        writeToExcel = self.input_args['writeToExcel']
 
+        sim = pd.DataFrame(graph)
+        sim = sim.iloc[[0, 364, 699],].T
+        sim.columns = ['W1', 'W4', 'W5']
 
-        # empirical data
-        empirical_data = self.get_empirical_data(file = self.input_args['agent_pal_file'], classes = self.input_args['classes'])
+        empirical.columns = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7']
+        empirical = empirical.set_index(sim.index)
 
-        # population
-        if (population_name == 'peer'):
-            population = self.nominationPopulation
-        elif (population_name == 'communication'):
-            population = self.communicationPopulation
+        # SSE wave 4
+        #error_w4 = ((sim[['W4']] - empirical[['W4']]) ** 2).sum().sum()
 
-        list_error = []
-        list_child = []
-        list_cl = []
+        # SSE wave 5
+        error_w5 = ((sim[['W5']] - empirical[['W5']]) ** 2).sum().sum()
 
-        # Run the model
-        init_time = time()
-        sim_child, sim_cl = self.simulate(population, thres, ipa, t)
-        end_time = time()
+        # Divided by 10 to increase the chance of acceptance of worst scenarios
+        # return ((PA_sim - empirical)**2).sum().sum()/10, parameters
+        return error_w5
 
-        # Goodness-of-fit
-        new_gof = self.get_error(graph=sim_cl, empirical=empirical_data)
-        list_error = ((thres, ipa, new_gof))
-        list_child = (sim_child)
-        list_cl = (sim_cl)
-
-        # Print progress
-        print('thres_PA:', thres, ' I_PA:', ipa, ' error:', new_gof, '|runtime:', (end_time - init_time))
-
-        return list_error, list_child, list_cl, empirical_data
-
-    def execute_grid_search(self, t_range, i_range, t, population_name):
+    def get_empirical_data(self, file, classes):
         '''
-        Perform a grid search:
-        1. define parameter space: ranging eahc parameter from 0 to 1 with steps of 0.05 (bins=20)
-        2. run the model for each parameter combination
-        3. assesses the goodness-of-fit
+        Get empirical physical activity data.
+        Args:
+            metric (str): physical activity metrics to use. default is number of steps.
+            classes (array): list of class ids
+
+        Returns:
+            dataframe: physical activity data (steps) per child and wave.
+        '''
+
+        df_pal = pd.read_csv(file, sep=';', header=0, encoding='latin-1')
+        df_pal = df_pal[df_pal['Class'].isin(classes)]
+
+        df_pal = df_pal.groupby(['Class', 'Wave']).mean()['Steps'].reset_index()
+        df_pal.Steps = df_pal.Steps * 0.000153
+        df_pal = df_pal.pivot(index='Class', columns='Wave')['Steps']
+
+        return df_pal
+
+    def get_PA_dictionary(self, graph):
+        results_dict = dict(graph.nodes(data=True))
+        PA_dict = {}
+        for k, v in results_dict.items():
+            PA_dict[k] = results_dict[k]['PA_hist']
+
+        return pd.DataFrame(PA_dict)
+
+class GridSearch(Tuning):
+
+    def __init__(self):
+        super(GridSearch, self).__init__()
+
+    def execute(self, t_range, i_range, t, population_name):
+        '''
+        Performs a grid search
+        - runs the model for each parameter combination
+        - calculates the goodness-of-fit
+
+        Args:
+            t_range: array of threshold values
+            i_range: array of i_pa values
+            t: simulation time in days
+            popualtion_name: network selection, i.e. nomination or communication
         '''
         generateGephiFiles = self.input_args['generateGephiFiles']
         writeToExcel = self.input_args['writeToExcel']
@@ -115,7 +136,7 @@ class Tuning:
         empirical_data = self.get_empirical_data(file = self.input_args['agent_pal_file'], classes = self.input_args['classes'])
 
         # population
-        if (population_name == 'peer'):
+        if (population_name == 'nomination'):
             population = self.nominationPopulation
         elif (population_name == 'communication'):
             population = self.communicationPopulation
@@ -142,68 +163,30 @@ class Tuning:
         return list_error, list_child, list_cl, empirical_data
 
 
-    def get_error(self, graph, empirical):
+
+class SimulatedAnnealing(Tuning):
+
+    def __init__(self):
+        super(SimulatedAnnealing, self).__init__()
+
+    def execute(self, t_initial, i_initial, t, population_name):
         '''
-        Calculates the sum of squared errors (SSE)
-        '''
-
-        sim = pd.DataFrame(graph)
-        sim = sim.iloc[[0, 364, 699],].T
-        sim.columns = ['W1', 'W4', 'W5']
-
-        empirical.columns = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7']
-        empirical = empirical.set_index(sim.index)
-
-        # SSE wave 4
-        #error_w4 = ((sim[['W4']] - empirical[['W4']]) ** 2).sum().sum()
-
-        # SSE wave 5
-        error_w5 = ((sim[['W5']] - empirical[['W5']]) ** 2).sum().sum()
-
-        # Divided by 10 to increase the chance of acceptance of worst scenarios
-        # return ((PA_sim - empirical)**2).sum().sum()/10, parameters
-        return error_w5
-
-
-    def get_empirical_data(self, file, classes):
-        '''
-        Get empirical physical activity data.
+        Parameter tuning using simulated annealing
 
         Args:
-            metric (str): physical activity metrics to use. default is number of steps.
-            classes (array): list of class ids
-
-        Returns:
-            dataframe: physical activity data (steps) per child and wave.
+            t_initial: initial threshold value
+            i_initial: initial i_pa value
+            t: simulation time in days
+            popualtion_name: network selection, i.e. nomination or communication
         '''
 
-        df_pal = pd.read_csv(file, sep=';', header=0, encoding='latin-1')
-        df_pal = df_pal[df_pal['Class'].isin(classes)]
-
-        df_pal = df_pal.groupby(['Class', 'Wave']).mean()['Steps'].reset_index()
-        df_pal.Steps = df_pal.Steps * 0.000153
-        df_pal = df_pal.pivot(index='Class', columns='Wave')['Steps']
-
-        return df_pal
-
-    def get_PA_dictionary(self, graph):
-        results_dict = dict(graph.nodes(data=True))
-        PA_dict = {}
-        for k, v in results_dict.items():
-            PA_dict[k] = results_dict[k]['PA_hist']
-
-        return pd.DataFrame(PA_dict)
-
-    def execute_simulated_annealing(self, initial_parameters, t, population_name):
-        '''
-        Parameter tuning function using simulated annealing
-        '''
+        initial_parameters = [t_initial, i_initial]
 
         # Get empirical data
         empirical_data = self.get_empirical_data(file=self.input_args['agent_pal_file'], classes=self.input_args['classes'])
 
         # Get population data
-        if (population_name == 'peer'):
+        if (population_name == 'nomination'):
             population = self.nominationPopulation
         elif (population_name == 'communication'):
             population = self.communicationPopulation
@@ -274,7 +257,6 @@ class Tuning:
 
     def get_neighbor(self, parameters):
         '''
-
         Parameters are:
             thres_PA = 0.2
             I_PA = 0.00075
@@ -317,38 +299,39 @@ class Tuning:
 
         return probability
 
+    def executeSingle(self, thres, ipa, t, population_name):
+        '''
+        Run the model for one parameter combination
 
+        Args:
+            thres: threshold value
+            ipa: i_pa value
+            t: simulation time in days
+            popualtion_name: network selection, i.e. nomination or communication
+        '''
 
-    def resultsToExcel(self, results):
-        # loop the classes
-        for class_id, res in results.items():
+        # empirical data
+        empirical_data = self.get_empirical_data(file=self.input_args['agent_pal_file'],
+                                                 classes=self.input_args['classes'])
 
-            directory = '../output/Class' + repr(int(float(class_id)))
+        # population
+        if (population_name == 'nomination'):
+            population = self.nominationPopulation
+        elif (population_name == 'communication'):
+            population = self.communicationPopulation
 
-            if not os.path.exists(directory):
-                os.makedirs(directory)
+        # Run the model
+        init_time = time()
+        sim_child, sim_cl = self.simulate(population, thres, ipa, t)
+        end_time = time()
 
-            filename = directory + '/' + repr(int(float(class_id))) + '.xls'
+        # Goodness-of-fit
+        new_gof = self.get_error(graph=sim_cl, empirical=empirical_data)
+        list_error = ((thres, ipa, new_gof))
+        list_child = (sim_child)
+        list_cl = (sim_cl)
 
-            w = Workbook()
-            ws = w.add_sheet(class_id.strip('\'') + ' Simulation Outcomes')
+        # Print progress
+        print('thres_PA:', thres, ' I_PA:', ipa, ' error:', new_gof, '|runtime:', (end_time - init_time))
 
-            # loop the dataframe
-            rowNum = 0
-            colNum = 0
-
-            for i in self.input_args['intervention_strategy']:
-                col = list(res[i])
-                colLen = len(col)
-
-                # writing the labels in excel sheet
-                ws.write(rowNum, colNum, i)
-                for c in col:
-                    rowNum = rowNum + 1
-                    ws.write(rowNum, colNum, c)
-
-                colNum = colNum + 1
-                rowNum = 0
-
-            w.save(filename)
-
+        return list_error, list_child, list_cl, empirical_data

@@ -59,7 +59,7 @@ class Simulation:
         simulation_outcomes_child = {}
         simulation_outcomes_avg = {}
         
-        if(population_name == 'peer'):
+        if(population_name == 'nomination'):
             population = self.PeerNominatedDataPopulation
         elif(population_name == 'communication'):
             population = self.CommunicationDataPopulation
@@ -70,8 +70,6 @@ class Simulation:
             simulation_outcomes_child[str(classroom_population_id)] = {}
             simulation_outcomes_avg[str(classroom_population_id)] = {}
             simulation_selected_agents[str(classroom_population_id)] = {}
-            
-            
 
             for intervention in intervention_strategies:
                 c = classroom_population.copy()
@@ -99,10 +97,9 @@ class Simulation:
                     df_agents_list.append([outer_dict[0],intv,outer_dict[1][intv]])
 
         df_agents = pd.DataFrame(df_agents_list, columns = ["SchoolClass", "Intervention", "InfluenceAgents"])
-        df_agents.to_excel('selected_agents_'+ population_name + '_'+str(threshold) + '_'+str(ipa) +'.xlsx')  
+        df_agents.to_excel('..\output\selectedAgents\selected_agents_'+ population_name + '_'+str(threshold) + '_'+str(ipa) +'.xlsx')
 
 
-        
         return simulation_outcomes_child,simulation_outcomes_avg,df_agents
             
     def get_intervention_PA_dictionary(self,graph):
@@ -119,7 +116,7 @@ class Simulation:
         # loop the classes
         for class_id,res in results.items():
             
-            directory='../output/Class'+repr(int(float(class_id)))
+            directory='../output/class'+repr(int(float(class_id)))
             
             if not os.path.exists(directory):
                 os.makedirs(directory)
@@ -160,7 +157,7 @@ class Simulation:
         
         
         if(self.input_args['writeToExcel'] == True):
-            directory='../output/ClassesSummary'
+            directory='../output/classesSummary'
             if not os.path.exists(directory):
                 os.makedirs(directory)
             filename=directory+'/SuccessRates.xls'
@@ -191,12 +188,12 @@ class Simulation:
 
         for class_id,res in results.items():            
 
-            directory='../output/Class'+class_id
+            directory='../output/class'+class_id
             if not os.path.exists(directory):
                 os.makedirs(directory)
 
             document = Document()
-            filename=directory+'/'+'Class'+class_id+'_Interventions_Detailed_Per_Child.docx'
+            filename=directory+'/'+'class'+class_id+'_Interventions_Detailed_Per_Child.docx'
             document.add_paragraph('All Intervention plots for class ' + class_id + ' per participant')
                 
             for i in self.input_args['intervention_strategy']:

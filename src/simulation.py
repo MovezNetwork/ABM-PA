@@ -1,3 +1,6 @@
+'''
+'''
+
 import networkx as nx
 import json
 import numpy as np
@@ -17,22 +20,31 @@ import src.population as p
 import src.model as m
 import src.utils as utils
 
-'''
-TODO: should we include a "reset"(= clean up some objects; so you can restart a run without running init again) & "stop" (= clean up all objects) method
-
-REPLY: as discussed, we should read about Python's garbage collector and decide on this
-'''
     
 class Simulation:
+    '''
+        Simulation Class.
+    '''    
     def __init__(self, **args):
         self.input_args = utils.load_input_args(file = '../input/simulation.json')
         self.PeerNominatedDataPopulation = p.PeerNominatedDataPopulation('Peer-Nominated data population', self.input_args)
         self.CommunicationDataPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args)
         self.model = m.DiffusionModel('Gabrianelli Diffusion Model', self.input_args)
 
-    
+
     def simulate_interventions(self,time,population_name,threshold,ipa):
-        
+        '''
+        Method for running the ABM simulations.
+
+        Args:
+            time (Integer): timepoint of a simulation (in days)
+            population_name (str): string constant for selecting a particular population
+            threshold (float): diffusion model thres_PA
+            ipa(float): diffusion model I_PA
+
+        Returns:
+            dictionary: Simulation outcomes dictionaries. Full (per child) and averaged (per class). Followed by a dataframe with the selected influencers per class
+        '''        
         percent = self.input_args['percent'] 
         generateGephiFiles = self.input_args['generateGephiFiles'] 
         writeToExcel = self.input_args['writeToExcel'] 
@@ -91,9 +103,33 @@ class Simulation:
 
         return simulation_outcomes_child,simulation_outcomes_avg,df_agents
 
+            
+    def get_intervention_PA_dictionary(self,graph):
+        '''
+        Getting a PA dictionary of the model's history PAL values after simulation.
+
+        Args:
+            graph (NetworkX graph): graph population after finishing the simulation
+
+        Returns:
+            dictionary: PAL history of the simulation per days
+        ''' 
+        results_dict = dict(graph.nodes(data=True))
+        PA_dict = {}
+        for k, v in results_dict.items():
+            PA_dict[k] = results_dict[k]['PA_hist']
         
+                
+        return pd.DataFrame(PA_dict)
+
     def interventionResultsToExcel(self,results):
-        # loop the classes
+        '''
+        Saves the simulated intervention outcomes in excel file. 
+        
+        Args:
+            results (dictionary): simulated intervention outcomes
+        
+        '''
         for class_id,res in results.items():
             
             directory='../output/class'+repr(int(float(class_id)))
@@ -126,7 +162,15 @@ class Simulation:
             w.save(filename)
             
     def getSuccessRates(self,results):
-
+        '''
+        Calculates the success rates of the simulated interventions.
+        
+        Args:
+            results (dictionary): simulated intervention outcomes
+        
+        Returns:
+            dataframe: dataframe containing success rates per class per simulated interventions
+        '''
         success_rates = []
         for class_id,res in results.items():
             for i in self.input_args['intervention_strategy']:
@@ -148,6 +192,16 @@ class Simulation:
         return success_rates
 
     def get_change(self,current, previous):
+        '''
+        Helper method for getSuccessRate. Calculates the success rate in percentage.
+        
+        Args:
+            current (float): last time point (end) of the simulation
+            previous (float): first time point (start) of the simulation
+        
+        Returns:
+            Integer: percentage of change (success rate)
+        '''
         if current == previous:
             return 0
         try:
@@ -157,11 +211,11 @@ class Simulation:
 
     
     def plot_interventions_per_participant(self,results):    
-
         '''
-
-        Saves (Displays) plots of intervention results per children per class, based on the dictionary input. 
-            results - dictionary containing the interventions' results applied per class
+         Saves (displays) plots of intervention results per participant per class, based on the dictionary input. 
+        
+        Args:
+            results (dictionary): simulated intervention outcomes
         '''
 
         for class_id,res in results.items():            
@@ -189,6 +243,12 @@ class Simulation:
             
             
     def plot_interventions_per_class(self,results_avg):
+        '''
+         Saves (displays) plots of intervention results per class, based on the dictionary input. 
+        
+        Args:
+            results_avg (dictionary): simulated intervention outcomes (averaged per class)
+        '''
         for class_id,res in results_avg.items():
             plt.figure(figsize=((15,10)))
             plt.xlim(0,364)
@@ -202,6 +262,12 @@ class Simulation:
             
             
     def plot_interventions_averaged(self,results_avg):
+        '''
+         Saves (displays) plots of average intervention results of all classes
+        
+        Args:
+            results_avg (dictionary): simulated intervention outcomes (averaged per class)
+        '''
         all_averaged = {}
         for i in self.input_args['intervention_strategy']:
             temp_res = pd.Series([], dtype = float)
@@ -223,7 +289,9 @@ class Simulation:
             
             
     def heatmap(self,success_rates):
-        
+        '''
+         DEPRECATED Heatmap of success rates
+        '''        
         success_rates  = success_rates.groupby(['SchoolClass'])['SuccessRate'].mean().reset_index()
         hm = success_rates[['SchoolClass','SuccessRate']].sort_values('SuccessRate',ascending=False)
         hm=hm.drop(hm.index[len(hm)-1])

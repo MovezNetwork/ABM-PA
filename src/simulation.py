@@ -15,6 +15,7 @@ from itertools import chain
 
 import src.population as p
 import src.model as m
+import src.utils as utils
 
 '''
 TODO: should we include a "reset"(= clean up some objects; so you can restart a run without running init again) & "stop" (= clean up all objects) method
@@ -24,21 +25,11 @@ REPLY: as discussed, we should read about Python's garbage collector and decide 
     
 class Simulation:
     def __init__(self, **args):
-        self.input_args = self.load_input_args()
+        self.input_args = utils.load_input_args(file = '../input/simulation.json')
         self.PeerNominatedDataPopulation = p.PeerNominatedDataPopulation('Peer-Nominated data population', self.input_args)
         self.CommunicationDataPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args)
         self.model = m.DiffusionModel('Gabrianelli Diffusion Model', self.input_args)
 
-
-    def load_input_args(self):
-        try:
-            input_args = json.loads(open('../input/simulation.json').read())
-        except Exception as ex:
-            print('simulation.json does not exist!')
-            print(ex)
-            
-        return input_args
-    
     
     def simulate_interventions(self,time,population_name,threshold,ipa):
         
@@ -47,11 +38,9 @@ class Simulation:
         writeToExcel = self.input_args['writeToExcel'] 
         intervention_strategies = self.input_args['intervention_strategy']
 
-        
         # set model thresholds
         self.model.setThresholdPA(threshold)
         self.model.setIPA(ipa)
-
 
         #selected infuential agents
         simulation_selected_agents = {}
@@ -82,7 +71,7 @@ class Simulation:
                 for t in range(0,time):
                     cl_pop = self.model.execute(cl_pop,t)
                 
-                outcomes_in_dict = self.get_intervention_PA_dictionary(cl_pop)
+                outcomes_in_dict = utils.get_PA_dictionary(cl_pop)
                 simulation_outcomes_child[str(classroom_population_id)][intervention] = outcomes_in_dict
                 simulation_outcomes_avg[str(classroom_population_id)][intervention] = outcomes_in_dict.mean(axis=1)
                 simulation_selected_agents[str(classroom_population_id)][intervention] = selected_agents
@@ -97,20 +86,11 @@ class Simulation:
                     df_agents_list.append([outer_dict[0],intv,outer_dict[1][intv]])
 
         df_agents = pd.DataFrame(df_agents_list, columns = ["SchoolClass", "Intervention", "InfluenceAgents"])
-        df_agents.to_excel('..\output\selectedAgents\selected_agents_'+ population_name + '_'+str(threshold) + '_'+str(ipa) +'.xlsx')
+        df_agents.to_excel('../output/selectedAgents/selected_agents_'+ population_name + '_'+str(threshold) + '_'+str(ipa) +'.xlsx')
 
 
         return simulation_outcomes_child,simulation_outcomes_avg,df_agents
-            
-    def get_intervention_PA_dictionary(self,graph):
-        results_dict = dict(graph.nodes(data=True))
-        PA_dict = {}
-        for k, v in results_dict.items():
-            PA_dict[k] = results_dict[k]['PA_hist']
-        
-                
-        return pd.DataFrame(PA_dict)
-    
+
         
     def interventionResultsToExcel(self,results):
         # loop the classes
@@ -174,9 +154,7 @@ class Simulation:
             return round(((current - previous)/previous)*100.0,2)
         except ZeroDivisionError:
             return 0 
-        
-        
-        
+
     
     def plot_interventions_per_participant(self,results):    
 

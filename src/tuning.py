@@ -1,6 +1,6 @@
-#from codes.networkPA import generate_network_PA
-#from codes.simulatePA import diffuse_behavior_PA
-
+'''
+Methods related to Tuning creation. https://pages.github.com
+'''
 
 import numpy as np
 import json

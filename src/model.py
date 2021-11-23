@@ -1,6 +1,11 @@
+'''
+'''
 import pandas as pd
 
 class Model:
+    '''
+        Base Model Class.
+    '''    
     def __init__(self,name):
         self.name = name
     
@@ -11,7 +16,9 @@ class Model:
         pass   
     
 class DiffusionModel(Model):
-    
+    '''
+        Diffusion Model Class.
+    '''     
     def __init__(self, name, input_args):
         self.name = name
         self.input_args = input_args
@@ -20,6 +27,19 @@ class DiffusionModel(Model):
       
     
     def execute(self, graph, t):
+        '''
+        Diffusion model execution method.  
+
+        Args:
+            graph (Graph): input graph
+            t (Integer): timepoint of a simulation (in days)
+
+        Returns:
+        NetworkX DiGraph: graph with updated PAL values based on the diffusion model run.
+
+        '''
+        
+        
         if t == 0:
             # Initiate hist vectors
             for node in graph.nodes():
@@ -88,60 +108,22 @@ class DiffusionModel(Model):
         return graph   
 
     def setThresholdPA(self, thres_PA_new):
+        '''
+        Setter method: thres_PA model parameter
+
+        Args:
+            thres_PA_new (Float): new PA_threshold model parameter
+        
+        '''
         self.thres_PA = thres_PA_new
 
     def setIPA(self, I_PA_new):
+        '''
+        Setter method: I_PA model parameter  
+
+        Args:
+            thres_PA_new (Float): new I_PA model parameter  
+        
+        '''
         self.I_PA = I_PA_new
-
-    def get_empirical_pa_data():
-        '''
-        Get empirical physical activity data. 
-
-        Returns:
-        dataframe: physical activity data (steps) per child and wave.
-
-        TODO: method not complete
-        '''
-        fitbit = pd.read_csv('../data/fitbit.csv', sep=';', header=0)
-
-        try:
-            input_simulation = json.loads(open('../input/simulation.json').read())
-        except Exception as ex:
-            print('simulation.json does not exist!')
-            print(ex)
-            return
-
-
-        classes = input_simulation['classes']
-
-        fitbit = fitbit[fitbit['Class'].isin(classes)]
-        steps_mean_wave = fitbit.groupby(['Child_Bosse', 'Wave']).mean()['Steps_ML_imp1'].reset_index()
-        steps_mean_wave.Steps_ML_imp1 = steps_mean_wave.Steps_ML_imp1 * 0.000153
-        steps_mean_wave = steps_mean_wave.pivot(index='Child_Bosse', columns='Wave')['Steps_ML_imp1']
-
-        return steps_mean_wave
-
-
-    def validation(self,df_interventions={}):
-        '''
-        TODO: method not complete.
-        '''
-        classes = self.input_args['classes']
-        df_interventions = df_interventions
-        emp_all=get_empirical_pa_data()[4]
-        diffusion_all=pd.Series()
-        
-        for c in clist:
-            for r_dict in df_interventions:
-                if(r_dict['class']==c):
-                    results_dict=r_dict
-                    results_dict=results_dict['diffusion']['nointervention']['gen'][15].T
-                    results_dict = results_dict[364]
-                    diffusion_all=diffusion_all.append(results_dict)
-                    
-        to_drop=emp_all.copy().drop(diffusion_all.index.values).index.values
-        index_diff=diffusion_all.index.values
-        emp_all=emp_all.drop(to_drop)
-        
-        return mean_absolute_error(emp_all, diffusion_all)
         

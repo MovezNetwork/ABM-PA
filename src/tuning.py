@@ -1,9 +1,8 @@
 '''
-Methods related to Tuning creation. https://pages.github.com
+Methods for model parameter tuning
 '''
 
 import numpy as np
-import json
 import pandas as pd
 import random
 from pprint import pprint
@@ -11,49 +10,53 @@ from time import time
 
 import src.population as p
 import src.model as m
+import src.utils as utils
 
 class Tuning:
 
     def __init__(self):
-        self.input_args = self.load_input_args()
+        self.input_args = utils.load_input_args('../input/simulation.json')
         self.nominationPopulation = p.PeerNominatedDataPopulation('Peer-Nominated data population', self.input_args)
         self.communicationPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args)
         self.model = m.DiffusionModel('Diffusion Model', self.input_args)
-
-    def load_input_args(self):
-        try:
-            input_args = json.loads(open('../input/simulation.json').read())
-        except Exception as ex:
-            print('simulation.json does not exist!')
-            print(ex)
-
-        return input_args
 
     def execute(self):
         pass
 
     def simulate(self, pop, thres, ipa, time):
+        '''
+        Return simulated output per child in a classroom and the average per classroom
+        Args:
+            pop: agent population
+            thres: threshold value
+            ipa: I_PA value
+            time: duration of simulation in days
+        '''
 
         # outcomes of the intervention
         simulation_outcomes_child = {}
         simulation_outcomes_avg = {}
 
+        # for each classroom
         for classroom_population in pop.get_class_graphs(pop.graph):
             classroom_population_id = list(classroom_population.nodes(data='class'))[1][1]
             simulation_outcomes_child[str(classroom_population_id)] = {}
             simulation_outcomes_avg[str(classroom_population_id)] = {}
 
+            # agents in classroom
             cl_pop = classroom_population
 
-            # set parameters
+            # set tuning parameters
             self.model.setThresholdPA(thres)
             self.model.setIPA(ipa)
 
-            # running the simulation, executing the model with every timestamp
+            # run the simulation for each day (t)
             for t in range(0, time):
                 cl_pop = self.model.execute(cl_pop, t)
 
-            outcomes_in_dict = self.get_PA_dictionary(cl_pop)
+            # convert output in a dictionary
+            outcomes_in_dict = utils.get_PA_dictionary(cl_pop)
+            # add output in outcome objects
             simulation_outcomes_child[str(classroom_population_id)] = outcomes_in_dict
             simulation_outcomes_avg[str(classroom_population_id)] = outcomes_in_dict.mean(axis=1)
 
@@ -61,53 +64,48 @@ class Tuning:
 
     def get_error(self, graph, empirical):
         '''
-        Calculates the sum of squared errors (SSE)
+        Return the sum of squared errors (SSE)
+        Args:
+            graph: model output
+            empirical: empirical data
         '''
 
+        # extract model output at baseline (W1), 1 year (W4), and 2 years (W5)
         sim = pd.DataFrame(graph)
         sim = sim.iloc[[0, 364, 699],].T
         sim.columns = ['W1', 'W4', 'W5']
 
+        # rename columns of empirical data
         empirical.columns = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7']
         empirical = empirical.set_index(sim.index)
 
-        # SSE wave 4
+        # SSE wave 4 (not used)
         #error_w4 = ((sim[['W4']] - empirical[['W4']]) ** 2).sum().sum()
 
-        # SSE wave 5
+        # calculate SSE of W5
         error_w5 = ((sim[['W5']] - empirical[['W5']]) ** 2).sum().sum()
 
-        # Divided by 10 to increase the chance of acceptance of worst scenarios
-        # return ((PA_sim - empirical)**2).sum().sum()/10, parameters
         return error_w5
 
     def get_empirical_data(self, file, classes):
         '''
-        Get empirical physical activity data.
+        Return a dataframe with physical activity data (steps) per child and wave.
         Args:
-            metric (str): physical activity metrics to use. default is number of steps.
-            classes (array): list of class ids
-
-        Returns:
-            dataframe: physical activity data (steps) per child and wave.
+            file: data file name
+            classes: list of class ids
         '''
 
         df_pal = pd.read_csv(file, sep=';', header=0, encoding='latin-1')
         df_pal = df_pal[df_pal['Class'].isin(classes)]
 
         df_pal = df_pal.groupby(['Class', 'Wave']).mean()['Steps'].reset_index()
+
+        # normalize the number of steps: divided by 10,000 and multuplied by 1.53 (mean taken from previous studies)
         df_pal.Steps = df_pal.Steps * 0.000153
         df_pal = df_pal.pivot(index='Class', columns='Wave')['Steps']
 
         return df_pal
 
-    def get_PA_dictionary(self, graph):
-        results_dict = dict(graph.nodes(data=True))
-        PA_dict = {}
-        for k, v in results_dict.items():
-            PA_dict[k] = results_dict[k]['PA_hist']
-
-        return pd.DataFrame(PA_dict)
 
 class GridSearch(Tuning):
 
@@ -116,18 +114,17 @@ class GridSearch(Tuning):
 
     def execute(self, t_range, i_range, t, population_name):
         '''
-        Performs a grid search
-        - runs the model for each parameter combination
-        - calculates the goodness-of-fit
+        Perform a grid search:
+        - run the model for each parameter combination
+        - calculate the goodness-of-fit
+        Return for each parameter combination: SSE, output per child by classrom, output per classroom, and empirical data
 
         Args:
             t_range: array of threshold values
             i_range: array of i_pa values
             t: simulation time in days
-            popualtion_name: network selection, i.e. nomination or communication
+            population_name: network selection, i.e. nomination or communication
         '''
-        generateGephiFiles = self.input_args['generateGephiFiles']
-        writeToExcel = self.input_args['writeToExcel']
 
         thres_mesh = t_range
         I_PA_mesh = i_range
@@ -144,6 +141,7 @@ class GridSearch(Tuning):
         list_error = []
         list_child = []
         list_cl = []
+        # Run the model for each parameter combination of thres_mesh and i_PA_mesh
         for thres in thres_mesh:
             for i in I_PA_mesh:
                 # Run the model
@@ -158,10 +156,9 @@ class GridSearch(Tuning):
                 list_cl.append(sim_cl)
 
                 # Print progress
-                print('thres_PA:', thres, ' I_PA:', i, ' error:', new_gof, '|runtime:', (end_time - init_time))
+                print('thres_PA:', thres, 'I_PA:', i, 'error:', new_gof, 'runtime:', (end_time - init_time))
 
         return list_error, list_child, list_cl, empirical_data
-
 
 
 class SimulatedAnnealing(Tuning):
@@ -172,12 +169,12 @@ class SimulatedAnnealing(Tuning):
     def execute(self, t_initial, i_initial, t, population_name):
         '''
         Parameter tuning using simulated annealing
-
+        Return optimal parameters, and a list of errors and associated parameter values
         Args:
             t_initial: initial threshold value
             i_initial: initial i_pa value
             t: simulation time in days
-            popualtion_name: network selection, i.e. nomination or communication
+            population_name: network selection, i.e. nomination or communication
         '''
 
         initial_parameters = [t_initial, i_initial]
@@ -232,8 +229,8 @@ class SimulatedAnnealing(Tuning):
                 end_time = time()
 
                 # Print progress
-                print(T, i, 'thres_PA: ', new_parameters[0], " I_PA: ", new_parameters[1], 'cost: ', new_error,
-                      '|runtime: ',(end_time - init_time))
+                print(T, i, 'thres_PA:', new_parameters[0], "I_PA:", new_parameters[1], 'SSE:', new_error,
+                      'runtime:',(end_time - init_time))
 
                 if new_error < old_error:
                     parameters = new_parameters
@@ -263,6 +260,7 @@ class SimulatedAnnealing(Tuning):
         A list with two positions:
             [thres, I_PA]
         '''
+
         old_thres = parameters[0]
         old_I_PA = parameters[1]
 
@@ -286,12 +284,11 @@ class SimulatedAnnealing(Tuning):
 
     def get_acceptance_probability(self, old_error, new_error, T):
         '''
-        Function to define acceptance probability values for Simulated Annealing
+        Function to define acceptance probability values for Simulated Annealing.
         Args:
             old_error: goodness-of-fit of old parameters
             new_error: goodness-of-fit of new parameters
             T: temperature of simulated annealing
-        Returns: acceptance probability
         '''
 
         delta = new_error - old_error
@@ -307,7 +304,7 @@ class SimulatedAnnealing(Tuning):
             thres: threshold value
             ipa: i_pa value
             t: simulation time in days
-            popualtion_name: network selection, i.e. nomination or communication
+            population_name: network selection, i.e. nomination or communication
         '''
 
         # empirical data
@@ -332,6 +329,6 @@ class SimulatedAnnealing(Tuning):
         list_cl = (sim_cl)
 
         # Print progress
-        print('thres_PA:', thres, ' I_PA:', ipa, ' error:', new_gof, '|runtime:', (end_time - init_time))
+        print('thres_PA:', thres, 'I_PA:', ipa, 'error:', new_gof, 'runtime:', (end_time - init_time))
 
         return list_error, list_child, list_cl, empirical_data

@@ -39,3 +39,4 @@
 /output/connections_gen.csv
 /output/gender.csv
 /output/graph_gen.gexf
+*.xlsx

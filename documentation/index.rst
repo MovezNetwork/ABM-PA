@@ -6,8 +6,8 @@
 Movez Lab Agent-Based Models's documentation
 ======================================================
 
- Welcome to the ABM documentation. The MovezLab ABM is an ongoing project where we develop agent-based models for health interventions targeted at youth. 
- <Write documentation intro here.>
+ Welcome to the MovezLab ABM documentation. The MovezLab ABM is an ongoing project where we develop agent-based models for health interventions targeted at youth. 
+
 
 Table of contents
 ~~~~~~~~~~~~~~~~~~~~

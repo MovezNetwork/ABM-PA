@@ -1,5 +1,5 @@
 '''
-Methods to tune parameters of the model.
+Methods for model parameter tuning
 '''
 
 import numpy as np

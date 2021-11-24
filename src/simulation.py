@@ -1,20 +1,13 @@
-'''
-'''
 
 import networkx as nx
-import json
 import numpy as np
 import os
 import pandas as pd
-import time
-from docx import Document 
+from docx import Document
 from xlwt import Workbook
-import collections
 from docx.shared import Inches
 import matplotlib.pyplot as plt
-from scipy.stats import pearsonr
 import seaborn as sns
-from itertools import chain
 
 import src.population as p
 import src.model as m
@@ -98,29 +91,15 @@ class Simulation:
                     df_agents_list.append([outer_dict[0],intv,outer_dict[1][intv]])
 
         df_agents = pd.DataFrame(df_agents_list, columns = ["SchoolClass", "Intervention", "InfluenceAgents"])
-        df_agents.to_excel('../output/selectedAgents/selected_agents_'+ population_name + '_'+str(threshold) + '_'+str(ipa) +'.xlsx')
+        directory = '../output/selectedAgents'
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        df_agents.to_excel(directory + 'selected_agents_'+ population_name + '_'+str(threshold) + '_'+str(ipa) +'.xlsx')
 
 
         return simulation_outcomes_child,simulation_outcomes_avg,df_agents
 
             
-    def get_intervention_PA_dictionary(self,graph):
-        '''
-        Getting a PA dictionary of the model's history PAL values after simulation.
-
-        Args:
-            graph (NetworkX graph): graph population after finishing the simulation
-
-        Returns:
-            dictionary: PAL history of the simulation per days
-        ''' 
-        results_dict = dict(graph.nodes(data=True))
-        PA_dict = {}
-        for k, v in results_dict.items():
-            PA_dict[k] = results_dict[k]['PA_hist']
-        
-                
-        return pd.DataFrame(PA_dict)
 
     def interventionResultsToExcel(self,results):
         '''

@@ -1,5 +1,6 @@
 /venv/
 /documentation/_build
+.DS_Store
 /data
 /notebooks/Results/
 /notebooks/AveragedOutput.xlsx

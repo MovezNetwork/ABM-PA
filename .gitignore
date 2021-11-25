@@ -40,3 +40,5 @@
 /output/gender.csv
 /output/graph_gen.gexf
 *.xlsx
+**/__pycache__/
+/.idea/

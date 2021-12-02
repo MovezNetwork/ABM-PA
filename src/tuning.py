@@ -10,7 +10,7 @@ import src.utils as utils
 
 class Tuning:
     '''
-    Tuning class (parent). Algorthims for parameter tuning
+        Tuning class. Algorthims for parameter tuning.
     '''
 
     def __init__(self):
@@ -25,11 +25,13 @@ class Tuning:
     def simulate(self, pop, thres, ipa, time):
         '''
         Performs a single simulation
+
         Args:
             pop (Graph): agent population
             thres (float): threshold value
             ipa (float): I_PA value
             time (integer): duration of simulation in days
+
         Returns:
             simulated output per child in a classroom and the average per classroom
         '''
@@ -66,9 +68,11 @@ class Tuning:
     def get_error(self, graph, empirical):
         '''
         Calculates the error between simulated and observed data
+
         Args:
             graph (Graph): model output
             empirical (dictionary): empirical data
+
         Returns:
             sum of squared errors (SSE)
         '''
@@ -93,9 +97,11 @@ class Tuning:
     def get_empirical_data(self, file, classes):
         '''
         Reads empirical data from file
+
         Args:
             file (string): data file name
             classes (array): list of class ids
+
         Returns:
             dataframe with physical activity data (steps) per child and wave.
         '''
@@ -114,7 +120,7 @@ class Tuning:
 
 class GridSearch(Tuning):
     '''
-    Grid search subclass.
+        Grid search subclass.
     '''
     def __init__(self):
         super(GridSearch, self).__init__()
@@ -122,11 +128,13 @@ class GridSearch(Tuning):
     def execute(self, t_range, i_range, t, population_name):
         '''
         Performs a grid search: (1) run the model for each parameter combination (2) calculate the goodness-of-fit
+
         Args:
             t_range (array): threshold values
             i_range (array): i_pa values
             t (integer): simulation time in days
             population_name (string): network selection, i.e. nomination or communication
+
         Returns:
             SSE, output per child by classrom, output per classroom, and empirical data for each parameter combination
         '''
@@ -176,11 +184,13 @@ class SimulatedAnnealing(Tuning):
     def execute(self, t_initial, i_initial, t, population_name):
         '''
         Performs simulated annealing for parameter tuning. Finds an optimal solution
+
         Args:
             t_initial (float): initial threshold value
             i_initial (float): initial i_pa value
             t (integer): simulation time in days
             population_name (string): network selection, i.e. nomination or communication
+
         Returns:
             optimal parameters, and a list of errors and associated parameter values
         '''
@@ -262,11 +272,13 @@ class SimulatedAnnealing(Tuning):
 
     def get_neighbor(self, parameters):
         '''
-        Gets neighbor for simualted annealing algorithm
-        Args:
-            parameters (list): [threshold, I_PA]
-        Returns:
-            new parameter combination
+            Gets neighbor for simualted annealing algorithm
+
+            Args:
+                parameters (list): [threshold, I_PA]
+
+            Returns:
+                new parameter combination
         '''
 
         old_thres = parameters[0]
@@ -292,13 +304,15 @@ class SimulatedAnnealing(Tuning):
 
     def get_acceptance_probability(self, old_error, new_error, T):
         '''
-        Function to define acceptance probability values for Simulated Annealing.
-        Args:
-            old_error (float): goodness-of-fit of old parameters
-            new_error (float): goodness-of-fit of new parameters
-            T (float): temperature of simulated annealing
-        Returns:
-            acceptance probability
+            Function to define acceptance probability values for Simulated Annealing.
+
+            Args:
+                old_error (float): goodness-of-fit of old parameters
+                new_error (float): goodness-of-fit of new parameters
+                T (float): temperature of simulated annealing
+
+            Returns:
+                acceptance probability
         '''
 
         delta = new_error - old_error
@@ -309,11 +323,13 @@ class SimulatedAnnealing(Tuning):
     def executeSingle(self, thres, ipa, t, population_name):
         '''
         Run the model for a single parameter combination
+
         Args:
             thres (float): threshold value
             ipa (float): i_pa value
             t (integer): simulation time in days
             population_name (string): network selection, i.e. nomination or communication
+            
         Returns:
             SSE, output per child by classrom, output per classroom, and empirical data
         '''

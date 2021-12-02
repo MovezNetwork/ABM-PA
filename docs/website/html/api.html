@@ -40,7 +40,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Setup" href="installation.html" />
-    <link rel="prev" title="Movez Lab Agent-Based Models’s documentation" href="index.html" /> 
+    <link rel="prev" title="MovezLab Agent-Based Models (ABM) documentation" href="index.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -91,6 +91,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#module-src.model">Model (src/model.py)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#simulation-src-simulation-py">Simulation (src/simulation.py)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#module-src.tuning">Tuning (src/tuning.py)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-src.utils">Utilities (src/utils.py)</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Setup</a></li>
@@ -612,9 +613,13 @@ list: List of subgraphs, where each graph is a particular school class.</p>
 <li><p><strong>t</strong> (<em>Integer</em>) – timepoint of a simulation (in days)</p></li>
 </ul>
 </dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>graph with updated PAL values based on the diffusion model run.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>NetworkX DiGraph</p>
+</dd>
 </dl>
-<p>Returns:
-NetworkX DiGraph: graph with updated PAL values based on the diffusion model run.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -774,7 +779,194 @@ NetworkX DiGraph: graph with updated PAL values based on the diffusion model run
 </div>
 <div class="section" id="module-src.tuning">
 <span id="tuning-src-tuning-py"></span><h2>Tuning (src/tuning.py)<a class="headerlink" href="#module-src.tuning" title="Permalink to this headline">¶</a></h2>
-<p>Methods for model parameter tuning</p>
+<dl class="py class">
+<dt id="src.tuning.GridSearch">
+<em class="property">class </em><code class="sig-prename descclassname">src.tuning.</code><code class="sig-name descname">GridSearch</code><a class="headerlink" href="#src.tuning.GridSearch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Grid search subclass.</p>
+<dl class="py method">
+<dt id="src.tuning.GridSearch.execute">
+<code class="sig-name descname">execute</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">t_range</span></em>, <em class="sig-param"><span class="n">i_range</span></em>, <em class="sig-param"><span class="n">t</span></em>, <em class="sig-param"><span class="n">population_name</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.tuning.GridSearch.execute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs a grid search: (1) run the model for each parameter combination (2) calculate the goodness-of-fit</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_range</strong> (<em>array</em>) – threshold values</p></li>
+<li><p><strong>i_range</strong> (<em>array</em>) – i_pa values</p></li>
+<li><p><strong>t</strong> (<em>integer</em>) – simulation time in days</p></li>
+<li><p><strong>population_name</strong> (<em>string</em>) – network selection, i.e. nomination or communication</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>SSE, output per child by classrom, output per classroom, and empirical data for each parameter combination</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="src.tuning.SimulatedAnnealing">
+<em class="property">class </em><code class="sig-prename descclassname">src.tuning.</code><code class="sig-name descname">SimulatedAnnealing</code><a class="headerlink" href="#src.tuning.SimulatedAnnealing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Simulated annealling subclass.</p>
+<dl class="py method">
+<dt id="src.tuning.SimulatedAnnealing.execute">
+<code class="sig-name descname">execute</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">t_initial</span></em>, <em class="sig-param"><span class="n">i_initial</span></em>, <em class="sig-param"><span class="n">t</span></em>, <em class="sig-param"><span class="n">population_name</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.tuning.SimulatedAnnealing.execute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs simulated annealing for parameter tuning. Finds an optimal solution</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_initial</strong> (<em>float</em>) – initial threshold value</p></li>
+<li><p><strong>i_initial</strong> (<em>float</em>) – initial i_pa value</p></li>
+<li><p><strong>t</strong> (<em>integer</em>) – simulation time in days</p></li>
+<li><p><strong>population_name</strong> (<em>string</em>) – network selection, i.e. nomination or communication</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>optimal parameters, and a list of errors and associated parameter values</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.tuning.SimulatedAnnealing.executeSingle">
+<code class="sig-name descname">executeSingle</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">thres</span></em>, <em class="sig-param"><span class="n">ipa</span></em>, <em class="sig-param"><span class="n">t</span></em>, <em class="sig-param"><span class="n">population_name</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.tuning.SimulatedAnnealing.executeSingle" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run the model for a single parameter combination</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>thres</strong> (<em>float</em>) – threshold value</p></li>
+<li><p><strong>ipa</strong> (<em>float</em>) – i_pa value</p></li>
+<li><p><strong>t</strong> (<em>integer</em>) – simulation time in days</p></li>
+<li><p><strong>population_name</strong> (<em>string</em>) – network selection, i.e. nomination or communication</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>SSE, output per child by classrom, output per classroom, and empirical data</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.tuning.SimulatedAnnealing.get_acceptance_probability">
+<code class="sig-name descname">get_acceptance_probability</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">old_error</span></em>, <em class="sig-param"><span class="n">new_error</span></em>, <em class="sig-param"><span class="n">T</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.tuning.SimulatedAnnealing.get_acceptance_probability" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to define acceptance probability values for Simulated Annealing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>old_error</strong> (<em>float</em>) – goodness-of-fit of old parameters</p></li>
+<li><p><strong>new_error</strong> (<em>float</em>) – goodness-of-fit of new parameters</p></li>
+<li><p><strong>T</strong> (<em>float</em>) – temperature of simulated annealing</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>acceptance probability</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.tuning.SimulatedAnnealing.get_neighbor">
+<code class="sig-name descname">get_neighbor</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">parameters</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.tuning.SimulatedAnnealing.get_neighbor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets neighbor for simualted annealing algorithm</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>parameters</strong> (<em>list</em>) – [threshold, I_PA]</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>new parameter combination</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="src.tuning.Tuning">
+<em class="property">class </em><code class="sig-prename descclassname">src.tuning.</code><code class="sig-name descname">Tuning</code><a class="headerlink" href="#src.tuning.Tuning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Tuning class. Algorthims for parameter tuning.</p>
+<dl class="py method">
+<dt id="src.tuning.Tuning.get_empirical_data">
+<code class="sig-name descname">get_empirical_data</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">file</span></em>, <em class="sig-param"><span class="n">classes</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.tuning.Tuning.get_empirical_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reads empirical data from file</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>file</strong> (<em>string</em>) – data file name</p></li>
+<li><p><strong>classes</strong> (<em>array</em>) – list of class ids</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>dataframe with physical activity data (steps) per child and wave.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.tuning.Tuning.get_error">
+<code class="sig-name descname">get_error</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">graph</span></em>, <em class="sig-param"><span class="n">empirical</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.tuning.Tuning.get_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates the error between simulated and observed data</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>graph</strong> (<em>Graph</em>) – model output</p></li>
+<li><p><strong>empirical</strong> (<em>dictionary</em>) – empirical data</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>sum of squared errors (SSE)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="src.tuning.Tuning.simulate">
+<code class="sig-name descname">simulate</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">pop</span></em>, <em class="sig-param"><span class="n">thres</span></em>, <em class="sig-param"><span class="n">ipa</span></em>, <em class="sig-param"><span class="n">time</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.tuning.Tuning.simulate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs a single simulation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pop</strong> (<em>Graph</em>) – agent population</p></li>
+<li><p><strong>thres</strong> (<em>float</em>) – threshold value</p></li>
+<li><p><strong>ipa</strong> (<em>float</em>) – I_PA value</p></li>
+<li><p><strong>time</strong> (<em>integer</em>) – duration of simulation in days</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>simulated output per child in a classroom and the average per classroom</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-src.utils">
+<span id="utilities-src-utils-py"></span><h2>Utilities (src/utils.py)<a class="headerlink" href="#module-src.utils" title="Permalink to this headline">¶</a></h2>
+<p>Utility methods</p>
+<dl class="py function">
+<dt id="src.utils.get_PA_dictionary">
+<code class="sig-prename descclassname">src.utils.</code><code class="sig-name descname">get_PA_dictionary</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">graph</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.utils.get_PA_dictionary" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets PA dictionary of the model’s history PAL values after simulation.
+:param graph: graph population after finishing the simulation
+:type graph: Graph</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>PAL history of the simulation per days</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>dictionary</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="src.utils.load_input_args">
+<code class="sig-prename descclassname">src.utils.</code><code class="sig-name descname">load_input_args</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">file</span></em><span class="sig-paren">)</span><a class="headerlink" href="#src.utils.load_input_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read json input file
+:param file: json file
+:type file: string</p>
+</dd></dl>
+
 </div>
 </div>
 
@@ -785,7 +977,7 @@ NetworkX DiGraph: graph with updated PAL values based on the diffusion model run
           <footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
         <a href="installation.html" class="btn btn-neutral float-right" title="Setup" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-        <a href="index.html" class="btn btn-neutral float-left" title="Movez Lab Agent-Based Models’s documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="index.html" class="btn btn-neutral float-left" title="MovezLab Agent-Based Models (ABM) documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
 
   <hr/>

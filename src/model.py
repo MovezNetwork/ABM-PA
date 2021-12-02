@@ -35,7 +35,7 @@ class DiffusionModel(Model):
             t (Integer): timepoint of a simulation (in days)
 
         Returns:
-        NetworkX DiGraph: graph with updated PAL values based on the diffusion model run.
+            NetworkX DiGraph: graph with updated PAL values based on the diffusion model run.
 
         '''
         

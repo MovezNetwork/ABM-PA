@@ -31,3 +31,9 @@ Tuning (src/tuning.py)
 --------------------------
 .. automodule:: src.tuning
     :members:
+
+
+Utilities (src/utils.py)
+--------------------------
+.. automodule:: src.utils
+    :members:

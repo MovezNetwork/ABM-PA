@@ -1,7 +1,3 @@
-'''
-Methods for model parameter tuning
-'''
-
 import numpy as np
 import pandas as pd
 import random
@@ -13,6 +9,9 @@ import src.model as m
 import src.utils as utils
 
 class Tuning:
+    '''
+    Tuning class (parent). Algorthims for parameter tuning
+    '''
 
     def __init__(self):
         self.input_args = utils.load_input_args('../input/simulation.json')
@@ -25,12 +24,14 @@ class Tuning:
 
     def simulate(self, pop, thres, ipa, time):
         '''
-        Return simulated output per child in a classroom and the average per classroom
+        Performs a single simulation
         Args:
-            pop: agent population
-            thres: threshold value
-            ipa: I_PA value
-            time: duration of simulation in days
+            pop (Graph): agent population
+            thres (float): threshold value
+            ipa (float): I_PA value
+            time (integer): duration of simulation in days
+        Returns:
+            simulated output per child in a classroom and the average per classroom
         '''
 
         # outcomes of the intervention
@@ -64,10 +65,12 @@ class Tuning:
 
     def get_error(self, graph, empirical):
         '''
-        Return the sum of squared errors (SSE)
+        Calculates the error between simulated and observed data
         Args:
-            graph: model output
-            empirical: empirical data
+            graph (Graph): model output
+            empirical (dictionary): empirical data
+        Returns:
+            sum of squared errors (SSE)
         '''
 
         # extract model output at baseline (W1), 1 year (W4), and 2 years (W5)
@@ -89,10 +92,12 @@ class Tuning:
 
     def get_empirical_data(self, file, classes):
         '''
-        Return a dataframe with physical activity data (steps) per child and wave.
+        Reads empirical data from file
         Args:
-            file: data file name
-            classes: list of class ids
+            file (string): data file name
+            classes (array): list of class ids
+        Returns:
+            dataframe with physical activity data (steps) per child and wave.
         '''
 
         df_pal = pd.read_csv(file, sep=';', header=0, encoding='latin-1')
@@ -108,22 +113,22 @@ class Tuning:
 
 
 class GridSearch(Tuning):
-
+    '''
+    Grid search subclass.
+    '''
     def __init__(self):
         super(GridSearch, self).__init__()
 
     def execute(self, t_range, i_range, t, population_name):
         '''
-        Perform a grid search:
-        - run the model for each parameter combination
-        - calculate the goodness-of-fit
-        Return for each parameter combination: SSE, output per child by classrom, output per classroom, and empirical data
-
+        Performs a grid search: (1) run the model for each parameter combination (2) calculate the goodness-of-fit
         Args:
-            t_range: array of threshold values
-            i_range: array of i_pa values
-            t: simulation time in days
-            population_name: network selection, i.e. nomination or communication
+            t_range (array): threshold values
+            i_range (array): i_pa values
+            t (integer): simulation time in days
+            population_name (string): network selection, i.e. nomination or communication
+        Returns:
+            SSE, output per child by classrom, output per classroom, and empirical data for each parameter combination
         '''
 
         thres_mesh = t_range
@@ -162,19 +167,22 @@ class GridSearch(Tuning):
 
 
 class SimulatedAnnealing(Tuning):
-
+    '''
+       Simulated annealling subclass.
+    '''
     def __init__(self):
         super(SimulatedAnnealing, self).__init__()
 
     def execute(self, t_initial, i_initial, t, population_name):
         '''
-        Parameter tuning using simulated annealing
-        Return optimal parameters, and a list of errors and associated parameter values
+        Performs simulated annealing for parameter tuning. Finds an optimal solution
         Args:
-            t_initial: initial threshold value
-            i_initial: initial i_pa value
-            t: simulation time in days
-            population_name: network selection, i.e. nomination or communication
+            t_initial (float): initial threshold value
+            i_initial (float): initial i_pa value
+            t (integer): simulation time in days
+            population_name (string): network selection, i.e. nomination or communication
+        Returns:
+            optimal parameters, and a list of errors and associated parameter values
         '''
 
         initial_parameters = [t_initial, i_initial]
@@ -254,11 +262,11 @@ class SimulatedAnnealing(Tuning):
 
     def get_neighbor(self, parameters):
         '''
-        Parameters are:
-            thres_PA = 0.2
-            I_PA = 0.00075
-        A list with two positions:
-            [thres, I_PA]
+        Gets neighbor for simualted annealing algorithm
+        Args:
+            parameters (list): [threshold, I_PA]
+        Returns:
+            new parameter combination
         '''
 
         old_thres = parameters[0]
@@ -286,9 +294,11 @@ class SimulatedAnnealing(Tuning):
         '''
         Function to define acceptance probability values for Simulated Annealing.
         Args:
-            old_error: goodness-of-fit of old parameters
-            new_error: goodness-of-fit of new parameters
-            T: temperature of simulated annealing
+            old_error (float): goodness-of-fit of old parameters
+            new_error (float): goodness-of-fit of new parameters
+            T (float): temperature of simulated annealing
+        Returns:
+            acceptance probability
         '''
 
         delta = new_error - old_error
@@ -298,13 +308,14 @@ class SimulatedAnnealing(Tuning):
 
     def executeSingle(self, thres, ipa, t, population_name):
         '''
-        Run the model for one parameter combination
-
+        Run the model for a single parameter combination
         Args:
-            thres: threshold value
-            ipa: i_pa value
-            t: simulation time in days
-            population_name: network selection, i.e. nomination or communication
+            thres (float): threshold value
+            ipa (float): i_pa value
+            t (integer): simulation time in days
+            population_name (string): network selection, i.e. nomination or communication
+        Returns:
+            SSE, output per child by classrom, output per classroom, and empirical data
         '''
 
         # empirical data
@@ -324,11 +335,11 @@ class SimulatedAnnealing(Tuning):
 
         # Goodness-of-fit
         new_gof = self.get_error(graph=sim_cl, empirical=empirical_data)
-        list_error = ((thres, ipa, new_gof))
-        list_child = (sim_child)
-        list_cl = (sim_cl)
+        error = ((thres, ipa, new_gof))
+        child = (sim_child)
+        cl = (sim_cl)
 
         # Print progress
         print('thres_PA:', thres, 'I_PA:', ipa, 'error:', new_gof, 'runtime:', (end_time - init_time))
 
-        return list_error, list_child, list_cl, empirical_data
+        return error, child, cl, empirical_data

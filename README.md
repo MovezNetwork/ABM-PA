@@ -1,7 +1,7 @@
 # ABM-PA
 
 An agent-based model for physical activity behaviour in children and adolescents.
-In the model agents' hysical activity is influenced by peers’ behavior (social network influence) and affected by socio-economic conditions of the agent (environmental influence). Agents connect to each other via derived social connections in the nominated or communication network.
+In the model agents' physical activity is influenced by peers’ behavior (social network influence) and affected by socio-economic conditions of the agent (environmental influence). Agents connect to each other via derived social connections in the nominated or communication network.
 
 ## Agents 
 Children and adolescents in schoolclasses

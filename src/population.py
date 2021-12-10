@@ -1350,15 +1350,20 @@ class PeerNominatedDataPopulation(Population):
             # thabo approach: child(node[0])-pred;nominated(node[1])-succ;weight
 
             #An arrow (x, y) is considered to be directed from x to y; y is called the head and x is called the tail of the arrow; y is said to be a direct successor of x and x is said to be a direct predecessor of y.
-
+            
 
             # Create the edges in the graph
+            df_nomination_connections = []
             for node in connections_dict.items():
                 pred = node[0]
                 origins = node[1]
                 for succ, weight in origins.items():
                     if weight > 0:
                         graph.add_edge(pred,succ,weight=weight)
+                        df_nomination_connections.append([pred,succ,weight])
+                        
+                        
+            df_nomination_connections = pd.DataFrame(df_nomination_connections, columns = ["ChildID", "AlterID", "Weight"])
         #                 print('pred: '+ repr(pred)+' succ:'+repr(succ)+' weight:'+repr(weight))
 
             # POPULATE THE AGENTS
@@ -1394,11 +1399,7 @@ class PeerNominatedDataPopulation(Population):
 
 
             # Save the connections file in the results folder
-
-#             if label is None:
-#                 connections_df.to_csv('../output/connections.csv')
-#             else:
-#                 connections_df.to_csv(('../output/connections_{1}.csv').format(label))
+            df_nomination_connections.to_csv(('../output/nomination_connections.csv'))
 
             return graph
 
@@ -1435,6 +1436,8 @@ class CommunicationDataPopulation(Population):
 
 
             df_comm = df_comm.astype({'Participant': 'float64'})
+            
+            df_connections_communication = []
 
             df_participants = df_comm.groupby(['Class','Participant','Child'])['UMID'].count().reset_index()
             df_participants = df_participants[['Class','Participant','Child']]
@@ -1452,6 +1455,13 @@ class CommunicationDataPopulation(Population):
                     # this is not 100% ok, I need a list of all participants per class!
                     if(row[1] in children_in_class):
                         graph.add_edge(df_participants.loc[df_participants['Participant'] == row[0], 'Child'].iloc[0],df_participants.loc[df_participants['Participant'] == row[1], 'Child'].iloc[0],weight=row[3])
+                        
+                        df_connections_communication.append([df_participants.loc[df_participants['Participant'] == row[0], 'Child'].iloc[0],df_participants.loc[df_participants['Participant'] == row[1], 'Child'].iloc[0],row[3]])
+                        
+                        
+            df_connections_communication = pd.DataFrame(df_connections_communication, columns = ["ChildID", "AlterID", "Weight"])
+            df_connections_communication.to_csv('../output/communication_connections.csv')
+            
 
 
             # POPULATE THE AGENTS

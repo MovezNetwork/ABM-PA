@@ -23,9 +23,68 @@ class Simulation:
         self.PeerNominatedDataPopulation = p.PeerNominatedDataPopulation('Peer-Nominated data population', self.input_args)
         self.CommunicationDataPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args)
         self.model = m.DiffusionModel('Gabrianelli Diffusion Model', self.input_args)
+        
+    def simulate_preinterventions(self,time,population_name,threshold,ipa):
+        '''
+        Method for running the ABM pre-simulation (model calibration).
+        Args:
+            time (Integer): timepoint of a simulation (in days)
+            population_name (str): string constant for selecting a particular population
+            threshold (float): diffusion model thres_PA
+            ipa(float): diffusion model I_PA
+        Returns:
+            dictionary: Simulation outcomes dictionaries. Full (per child) and averaged (per class). Followed by a dataframe with the selected influencers per class
+        '''       
+        
+        percent = self.input_args['percent'] 
+        generateGephiFiles = self.input_args['generateGephiFiles'] 
+        writeToExcel = self.input_args['writeToExcel'] 
+
+        # set model thresholds
+        self.model.setThresholdPA(threshold)
+        self.model.setIPA(ipa)
+
+        #outcomes of the intervention
+        simulation_outcomes_child = {}
+        simulation_outcomes_avg = {}
+        snapshot_pa = {}
+        if(population_name == 'nomination'):
+            population = self.PeerNominatedDataPopulation
+        elif(population_name == 'communication'):
+            population = self.CommunicationDataPopulation
+        
+ 
+        # each classroom_population is a graph
+        for classroom_population in population.get_class_graphs(population.graph):
+
+            classroom_population_id = list(classroom_population.nodes(data='class'))[1][1]
+            simulation_outcomes_child[str(classroom_population_id)] = {}
+            simulation_outcomes_avg[str(classroom_population_id)] = {}
+        
+            c = classroom_population.copy()
+#             print('before preintervention class',c.nodes.data())
+            #running the simulation, executing the model with every timestamp
+            for t in range(0,time):
+                c = self.model.execute(c,t)
+
+            outcomes_in_dict = utils.get_PA_dictionary(c)
+            #snapshot of the last 
+            results_dict = dict(c.nodes(data=True))
+            for k, v in results_dict.items():
+                #taking the last element of all the saved PA_hist values
+                snapshot_pa[k] = results_dict[k]['PA_hist'][-1]
+#             print('after preintervention class',c.nodes.data())
+               
+            simulation_outcomes_child[str(classroom_population_id)]['presimulation_nointervention'] = outcomes_in_dict
+            simulation_outcomes_avg[str(classroom_population_id)]['presimulation_nointervention'] = outcomes_in_dict.mean(axis=1)
+
+            
+#         print('snapshot_PA',snapshot_pa)
 
 
-    def simulate_interventions(self,time,population_name,threshold,ipa):
+        return simulation_outcomes_child,simulation_outcomes_avg,snapshot_pa
+
+    def simulate_interventions(self,time,population_name,preintervention_snapshot_PA,threshold,ipa):
         '''
         Method for running the ABM simulations.
 
@@ -57,7 +116,10 @@ class Simulation:
             population = self.PeerNominatedDataPopulation
         elif(population_name == 'communication'):
             population = self.CommunicationDataPopulation
-        
+            
+        print('PRE SNAPSHOT',population.graph.nodes(data='PA'))
+        nx.set_node_attributes(population.graph, values=preintervention_snapshot_PA, name='PA')
+        print('POST SNAPSHOT',population.graph.nodes(data='PA'))      
         for classroom_population in population.get_class_graphs(population.graph):
 
             classroom_population_id = list(classroom_population.nodes(data='class'))[1][1]

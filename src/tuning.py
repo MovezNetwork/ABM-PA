@@ -111,7 +111,7 @@ class Tuning:
 
         df_pal = df_pal.groupby(['Class', 'Wave']).mean()['Steps'].reset_index()
 
-        # normalize the number of steps: divided by 10,000 and multuplied by 1.53 (mean taken from previous studies)
+        # normalize the number of steps: divided by 10,000 and multiplied by 1.53 (mean taken from previous studies)
         df_pal.Steps = df_pal.Steps * 0.000153
         df_pal = df_pal.pivot(index='Class', columns='Wave')['Steps']
 

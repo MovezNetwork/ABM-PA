@@ -62,18 +62,20 @@ class Simulation:
             simulation_outcomes_avg[str(classroom_population_id)] = {}
         
             c = classroom_population.copy()
-#             print('before preintervention class',c.nodes.data())
+
+            #    print('before preintervention class', c.nodes.data())
             #running the simulation, executing the model with every timestamp
             for t in range(0,time):
                 c = self.model.execute(c,t)
 
             outcomes_in_dict = utils.get_PA_dictionary(c)
+
             #snapshot of the last 
             results_dict = dict(c.nodes(data=True))
             for k, v in results_dict.items():
                 #taking the last element of all the saved PA_hist values
                 snapshot_pa[k] = results_dict[k]['PA_hist'][-1]
-#             print('after preintervention class',c.nodes.data())
+                #print('after preintervention class',c.nodes.data())
                
             simulation_outcomes_child[str(classroom_population_id)]['presimulation_nointervention'] = outcomes_in_dict
             simulation_outcomes_avg[str(classroom_population_id)]['presimulation_nointervention'] = outcomes_in_dict.mean(axis=1)
@@ -116,10 +118,10 @@ class Simulation:
             population = self.PeerNominatedDataPopulation
         elif(population_name == 'communication'):
             population = self.CommunicationDataPopulation
-            
-        print('PRE SNAPSHOT',population.graph.nodes(data='PA'))
+
+        #print('PRE SNAPSHOT',population.graph.nodes(data='PA'))
         nx.set_node_attributes(population.graph, values=preintervention_snapshot_PA, name='PA')
-        print('POST SNAPSHOT',population.graph.nodes(data='PA'))      
+        #print('POST SNAPSHOT',population.graph.nodes(data='PA'))
         for classroom_population in population.get_class_graphs(population.graph):
 
             classroom_population_id = list(classroom_population.nodes(data='class'))[1][1]

@@ -74,8 +74,8 @@ class Population:
         i = 0
         for key in dict.keys():
             dict[key] = pal[i]
-            #print(i, "key", key, " r ", r[i], " pal ", pal[i] )
             i = i + 1
+        #print(dict)
 
         return dict
 
@@ -706,20 +706,18 @@ class Population:
             list: list of subgraphs, each graph is a school class
         ''' 
 
-
         class_list = self.input_args['classes']
-        writeToFile = self.input_args['writeToExcel'] 
+        writeToFile = self.input_args['generateGephiFiles']
         label = self.input_args['network']
         label = label[0]
 
-    #     if(writeToFile):
-    #         directory='output/ClassesSummary/GephiSubgraphs'
-    #         if not os.path.exists(directory):
-    #             os.makedirs(directory)
+        # if(writeToFile):
+        #      directory='output/ClassesSummary/GephiSubgraphs'
+        #      if not os.path.exists(directory):
+        #          os.makedirs(directory)
         # if list is empty, we want all the classes
 
         class_dictionary = {}
-
         for c in class_list:
             class_dictionary[c] = []
 
@@ -736,15 +734,16 @@ class Population:
             subgraph.graph['class']=c
 
             if(writeToFile):
-                    directory='../output/class'+repr(int(c))
-                    if not os.path.exists(directory):
-                        os.makedirs(directory)
-                    g_file = directory+'/class_' + repr(c) + '_' + label + '.gexf'
-                    try:
-                        nx.write_gexf(subgraph, g_file)
-                    except IOError as e:
-                        errno, strerror = e.args
-                        print("I/O error({0}): {1}".format(errno,strerror))
+                directory='../output/class'+repr(int(c))
+                if not os.path.exists(directory):
+                    os.makedirs(directory)
+
+                g_file = directory+'/class_' + repr(c) + '_' + label + '.gexf'
+                try:
+                    nx.write_gexf(subgraph, g_file)
+                except IOError as e:
+                    errno, strerror = e.args
+                    print("I/O error({0}): {1}".format(errno,strerror))
 
             list_subgraphs.append(subgraph)
 
@@ -1285,7 +1284,6 @@ class PeerNominatedDataPopulation(Population):
         self.graph = self.create_population(nx.DiGraph())
 
     def create_population(self,graph):
-
             '''
             Create a nomination-data population in a graph representation. The connections (edges) are created and weighted based on peer nomination questionaires. The agents (nodes) are assigned attributes regarding age, gender, PAL, env.
             
@@ -1294,7 +1292,6 @@ class PeerNominatedDataPopulation(Population):
 
             Returns:
             NetworkX DiGraph: updated graph with weighted connections.
-
             '''
 
             graph = graph
@@ -1305,9 +1302,25 @@ class PeerNominatedDataPopulation(Population):
             class_list = self.input_args['classes']
 
 
-            nominations = pd.read_csv(self.input_args['peer_nomination_file'], sep=';', header=0, encoding='latin-1')
-            nominations = nominations[nominations.Child.isin(list_participants)]
-            nominations = nominations[nominations.Alter.isin(list_participants)] 
+            df_nom = pd.read_csv(self.input_args['peer_nomination_file'], sep=';', header=0, encoding='latin-1')
+
+            # onlu include selected participants
+            df_nom = df_nom[df_nom.Child.isin(list_participants)]
+            #df_nom = df_nom[df_nom.Alter.isin(list_participants)] not used anymore because we first need to create nodes for all children. Afterwards, we filter Alters.
+
+            for cl in df_nom['Class'].unique():
+                children = df_nom[df_nom.Class.isin([cl])].Child.unique()
+                for key in children:
+                    graph.add_node(key)
+
+            # Only select alters present in the class of the child (i.e. participant)
+            nom_temp = []
+            for cl in df_nom['Class'].unique():
+                df_temp = df_nom[df_nom.Class.isin([cl])]
+                children_in_class = df_temp.Child.unique()
+                df_temp = df_temp[df_temp.Alter.isin(children_in_class)]
+                nom_temp.append(df_temp)
+            df_nom = pd.concat(nom_temp)
 
             # Read formula to calculate the weight for the connections
             try:
@@ -1335,7 +1348,7 @@ class PeerNominatedDataPopulation(Population):
             # To avoid repetition of nominations in different waves
             nominations_list = []
 
-            for line in nominations[['Child', 'Alter', 'Variable']].iterrows():
+            for line in df_nom[['Child', 'Alter', 'Variable']].iterrows():
                 (ch, nom, var) = line[1]  
                 # Verify if nominated is in the list of participants (pp)
                 if nom in list_participants and (ch, nom, var) not in nominations_list:
@@ -1434,35 +1447,69 @@ class CommunicationDataPopulation(Population):
             df_comm = df_comm[df_comm.Class.isin(classes)]
             df_comm = df_comm[df_comm.Child.isin(self.input_args['participants'])]
 
-
             df_comm = df_comm.astype({'Participant': 'float64'})
-            
+
             df_connections_communication = []
 
-            df_participants = df_comm.groupby(['Class','Participant','Child'])['UMID'].count().reset_index()
-            df_participants = df_participants[['Class','Participant','Child']]
+            #df_participants = df_comm.groupby(['Class','Participant','Child'])['UMID'].count().reset_index()
+            #df_participants = df_participants[['Class','Participant','Child']]
 
             #create the connections - edges
-            for cl in classes:
+            #for cl in classes:
                 # the weight is according to version 1 
-                df_temp = df_comm[df_comm.Class.isin([cl])]
-                df_temp = df_temp.groupby(["Participant","RecipientChild"])["UMID"].count().reset_index(name='NumberMessages')
-                df_temp['Weight'] = df_temp['NumberMessages']/max(df_temp['NumberMessages'])
-                children_in_class = df_temp.Participant.unique()
+            #    df_temp = df_comm[df_comm.Class.isin([cl])]
+            #    df_temp = df_temp.groupby(["Participant","RecipientChild"])["UMID"].count().reset_index(name='NumberMessages')
+            #    df_temp['Weight'] = df_temp['NumberMessages']/max(df_temp['NumberMessages'])
+            #    children_in_class = df_temp.Participant.unique()
 
-                for index, row in df_temp.iterrows():
+            #    for index, row in df_temp.iterrows():
                     #only if the recepient is member of the same class - excluded intraclass communication
                     # this is not 100% ok, I need a list of all participants per class!
-                    if(row[1] in children_in_class):
-                        graph.add_edge(df_participants.loc[df_participants['Participant'] == row[0], 'Child'].iloc[0],df_participants.loc[df_participants['Participant'] == row[1], 'Child'].iloc[0],weight=row[3])
+            #        if(row[1] in children_in_class):
+            #            graph.add_edge(df_participants.loc[df_participants['Participant'] == row[0], 'Child'].iloc[0],df_participants.loc[df_participants['Participant'] == row[1], 'Child'].iloc[0],weight=row[3])
                         
-                        df_connections_communication.append([df_participants.loc[df_participants['Participant'] == row[0], 'Child'].iloc[0],df_participants.loc[df_participants['Participant'] == row[1], 'Child'].iloc[0],row[3]])
+             #           df_connections_communication.append([df_participants.loc[df_participants['Participant'] == row[0], 'Child'].iloc[0],df_participants.loc[df_participants['Participant'] == row[1], 'Child'].iloc[0],row[3]])
                         
-                        
-            df_connections_communication = pd.DataFrame(df_connections_communication, columns = ["ChildID", "AlterID", "Weight"])
-            df_connections_communication.to_csv('../output/communication_connections.csv')
-            
 
+            ### ALTERNATIVE METHOD ###
+
+            # Rename RecipientChild ID
+            alter = []
+            for part in df_comm['RecipientChild']:
+                alter.append(float(str(part)[-6:]))
+            df_comm['Alter'] = alter
+            df_comm[['Class', 'Child', 'Participant', 'RecipientChild', 'Alter']]
+
+            # create node based on child ids
+            for cl in df_comm['Class'].unique():
+                children = df_comm[df_comm.Class.isin([cl])].Child.unique()
+                for key in children:
+                    graph.add_node(key)
+
+            # Only select alters present in the class of the child (i.e. participant)
+            comm_temp = []
+            for cl in df_comm['Class'].unique():
+                df_temp = df_comm[df_comm.Class.isin([cl])]
+                children_in_class = df_temp.Child.unique()
+                df_temp = df_temp[df_temp.Alter.isin(children_in_class)]
+                comm_temp.append(df_temp)
+            df_comm = pd.concat(comm_temp)
+
+            # create the connections - edges
+            df_connections_communication = []
+            for cl in df_comm['Class'].unique():
+                df_temp = df_comm[df_comm.Class.isin([cl])]
+                # Number of messages sent by Participant to Recipient Child
+                df_temp = df_temp.groupby(["Child", "Alter"])["UMID"].count().reset_index(name='NumberMessages')
+                # Weight: Number of messages per participant divided by maximum number of messages sent in a class by 1 participant
+                df_temp['Weight'] = df_temp['NumberMessages'] / max(df_temp['NumberMessages'])
+
+                for index, row in df_temp.iterrows():
+                    graph.add_edge(row[0], row[1], weight=row[3])
+                    df_connections_communication.append([row[0], row[1], row[3]])
+
+            df_connections_communication = pd.DataFrame(df_connections_communication, columns=["ChildID", "AlterID", "Weight"])
+            df_connections_communication.to_csv('../output/communication_connections.csv')
 
             # POPULATE THE AGENTS
             PA_dict = self.assign_PA(metric='steps')
@@ -1493,8 +1540,7 @@ class CommunicationDataPopulation(Population):
 
             nx.set_node_attributes(graph, values=obesity_class, name='bmi_cat')
 
-                
-                
+
             return graph   
 
 

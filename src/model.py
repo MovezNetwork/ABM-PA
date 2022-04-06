@@ -36,10 +36,8 @@ class DiffusionModel(Model):
 
         Returns:
             NetworkX DiGraph: graph with updated PAL values based on the diffusion model run.
-
         '''
-        
-        
+
         if t == 0:
             # Initiate hist vectors
             for node in graph.nodes():

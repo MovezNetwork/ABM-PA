@@ -17,7 +17,7 @@ class Tuning:
         self.input_args = utils.load_input_args('../input/simulation.json')
         self.nominationPopulation = p.PeerNominatedDataPopulation('Peer-Nominated data population', self.input_args)
         self.communicationPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args)
-        self.model = m.DiffusionModel('Diffusion Model', self.input_args)
+        self.model = m.DiffusionModel(self.input_args)
 
     def execute(self):
         pass
@@ -36,36 +36,36 @@ class Tuning:
             simulated output per child in a classroom and the average per classroom
         '''
 
+        # set parameters
+        self.model.setThresholdPA(thres)
+        self.model.setIPA(ipa)
+
         # outcomes of the intervention
         simulation_outcomes_child = {}
-        simulation_outcomes_avg = {}
+        simulation_outcomes_class = {}
 
         # for each classroom
-        for classroom_population in pop.get_class_graphs(pop.graph):
-            classroom_population_id = list(classroom_population.nodes(data='class'))[1][1]
-            simulation_outcomes_child[str(classroom_population_id)] = {}
-            simulation_outcomes_avg[str(classroom_population_id)] = {}
+        for class_population in pop.get_class_graphs(pop.graph):
+            class_id = list(class_population.nodes(data='class'))[1][1]
+            simulation_outcomes_child[str(class_id)] = {}
+            simulation_outcomes_class[str(class_id)] = {}
 
             # agents in classroom
-            cl_pop = classroom_population
-
-            # set tuning parameters
-            self.model.setThresholdPA(thres)
-            self.model.setIPA(ipa)
+            cl_pop = class_population.copy()
 
             # run the simulation for each day (t)
             for t in range(0, time):
-                cl_pop = self.model.execute(cl_pop, t)
+                sim_pop = self.model.execute(cl_pop, t)
 
             # convert output in a dictionary
-            outcomes_in_dict = utils.get_PA_dictionary(cl_pop)
+            outcomes_in_dict = utils.get_PA_dictionary(sim_pop)
             # add output in outcome objects
-            simulation_outcomes_child[str(classroom_population_id)] = outcomes_in_dict
-            simulation_outcomes_avg[str(classroom_population_id)] = outcomes_in_dict.mean(axis=1)
+            simulation_outcomes_child[str(class_id)] = outcomes_in_dict
+            simulation_outcomes_class[str(class_id)] = outcomes_in_dict.mean(axis=1)
 
-        return simulation_outcomes_child, simulation_outcomes_avg
+        return simulation_outcomes_child, simulation_outcomes_class
 
-    def get_error(self, graph, empirical):
+    def get_error(self, graph, empirical, time):
         '''
         Calculates the error between simulated and observed data
 
@@ -79,8 +79,8 @@ class Tuning:
 
         # extract model output at baseline (W1), 1 year (W4), and 2 years (W5)
         sim = pd.DataFrame(graph)
-        sim = sim.iloc[[0, 364, 699],].T
-        sim.columns = ['W1', 'W4', 'W5']
+        sim = sim.iloc[[0, (time-1)]].T
+        sim.columns = ['W1', 'W5']
 
         # rename columns of empirical data
         empirical.columns = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7']
@@ -90,33 +90,11 @@ class Tuning:
         #error_w4 = ((sim[['W4']] - empirical[['W4']]) ** 2).sum().sum()
 
         # calculate SSE of W5
-        error_w5 = ((sim[['W5']] - empirical[['W5']]) ** 2).sum().sum()
+        error_w5 = (((sim[['W5']]) - (empirical[['W5']])) ** 2).sum().sum()
+
+        #print(empirical[['W5']])
 
         return error_w5
-
-    def get_empirical_data(self, file, classes):
-        '''
-        Reads empirical data from file
-
-        Args:
-            file (string): data file name
-            classes (array): list of class ids
-
-        Returns:
-            dataframe with physical activity data (steps) per child and wave.
-        '''
-
-        df_pal = pd.read_csv(file, sep=';', header=0, encoding='latin-1')
-        df_pal = df_pal[df_pal['Class'].isin(classes)]
-
-        df_pal = df_pal.groupby(['Class', 'Wave']).mean()['Steps'].reset_index()
-
-        # normalize the number of steps: divided by 10,000 and multiplied by 1.53 (mean taken from previous studies)
-        df_pal.Steps = df_pal.Steps * 0.000153
-        df_pal = df_pal.pivot(index='Class', columns='Wave')['Steps']
-
-        return df_pal
-
 
 class GridSearch(Tuning):
     '''
@@ -139,11 +117,8 @@ class GridSearch(Tuning):
             SSE, output per child by classrom, output per classroom, and empirical data for each parameter combination
         '''
 
-        thres_mesh = t_range
-        I_PA_mesh = i_range
-
         # empirical data
-        empirical_data = self.get_empirical_data(file = self.input_args['agent_pal_file'], classes = self.input_args['classes'])
+        empirical_data = utils.get_empirical_data(file = self.input_args['agent_pal_file'], classes = self.input_args['classes'])
 
         # population
         if (population_name == 'nomination'):
@@ -153,25 +128,70 @@ class GridSearch(Tuning):
 
         list_error = []
         list_child = []
-        list_cl = []
+        list_class = []
         # Run the model for each parameter combination of thres_mesh and i_PA_mesh
-        for thres in thres_mesh:
-            for i in I_PA_mesh:
+        for thres in t_range:
+            for i in i_range:
                 # Run the model
                 init_time = time()
                 sim_child, sim_cl = self.simulate(population, thres, i, t)
                 end_time = time()
 
                 # Goodness-of-fit
-                new_gof = self.get_error(graph=sim_cl, empirical=empirical_data)
+                new_gof = self.get_error(graph=sim_cl, empirical=empirical_data, time=t)
                 list_error.append((thres, i, new_gof))
                 list_child.append(sim_child)
-                list_cl.append(sim_cl)
+                list_class.append(sim_cl)
 
                 # Print progress
                 print('thres_PA:', thres, 'I_PA:', i, 'error:', new_gof, 'runtime:', (end_time - init_time))
 
-        return list_error, list_child, list_cl, empirical_data
+        return list_error, list_child, list_class, empirical_data
+
+    def executeSet(self, param_set, t, population_name):
+        '''
+        Run the model for a single parameter combination
+
+        Args:
+            param_set: set of parameter combinations
+            t (integer): simulation time in days
+            population_name (string): network selection, i.e. nomination or communication
+
+        Returns:
+            SSE, output per child by classrom, output per classroom, and empirical data
+        '''
+
+        # empirical data
+        empirical_data = utils.get_empirical_data(file=self.input_args['agent_pal_file'],
+                                                 classes=self.input_args['classes'])
+
+        # population
+        if (population_name == 'nomination'):
+            population = self.nominationPopulation
+        elif (population_name == 'communication'):
+            population = self.communicationPopulation
+
+        list_error = []
+        list_child = []
+        list_class = []
+        for params in param_set:
+            thres = params[0]
+            ipa = params[1]
+            # Run the model
+            init_time = time()
+            sim_child, sim_cl = self.simulate(population, thres, ipa, t)
+            end_time = time()
+
+            # Goodness-of-fit
+            new_gof = self.get_error(graph=sim_cl, empirical=empirical_data, time = t)
+            list_error.append((thres, ipa, new_gof))
+            list_child.append(sim_child)
+            list_class.append(sim_cl)
+
+            # Print progress
+            print('thres_PA:', thres, 'I_PA:', ipa, 'error:', new_gof, 'runtime:', (end_time - init_time))
+
+        return list_error, list_child, list_class, empirical_data
 
 
 class SimulatedAnnealing(Tuning):
@@ -320,42 +340,4 @@ class SimulatedAnnealing(Tuning):
 
         return probability
 
-    def executeSingle(self, thres, ipa, t, population_name):
-        '''
-        Run the model for a single parameter combination
 
-        Args:
-            thres (float): threshold value
-            ipa (float): i_pa value
-            t (integer): simulation time in days
-            population_name (string): network selection, i.e. nomination or communication
-            
-        Returns:
-            SSE, output per child by classrom, output per classroom, and empirical data
-        '''
-
-        # empirical data
-        empirical_data = self.get_empirical_data(file=self.input_args['agent_pal_file'],
-                                                 classes=self.input_args['classes'])
-
-        # population
-        if (population_name == 'nomination'):
-            population = self.nominationPopulation
-        elif (population_name == 'communication'):
-            population = self.communicationPopulation
-
-        # Run the model
-        init_time = time()
-        sim_child, sim_cl = self.simulate(population, thres, ipa, t)
-        end_time = time()
-
-        # Goodness-of-fit
-        new_gof = self.get_error(graph=sim_cl, empirical=empirical_data)
-        error = ((thres, ipa, new_gof))
-        child = (sim_child)
-        cl = (sim_cl)
-
-        # Print progress
-        print('thres_PA:', thres, 'I_PA:', ipa, 'error:', new_gof, 'runtime:', (end_time - init_time))
-
-        return error, child, cl, empirical_data

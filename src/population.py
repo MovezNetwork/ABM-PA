@@ -1,5 +1,5 @@
 '''
- 
+
 '''
 import json
 import networkx as nx
@@ -7,6 +7,8 @@ import numpy as np
 import os
 import pandas as pd
 import random
+
+import src.utils as utils
 
 
 
@@ -38,7 +40,7 @@ class Population:
         df_pal = df_pal[df_pal['Child'].isin(self.input_args['participants'])]
 
         df_pal = df_pal.groupby(['Child', 'Wave']).mean()['Steps'].reset_index()
-        df_pal.Steps = df_pal.Steps * 0.000153
+        df_pal.Steps = df_pal.Steps * 0.0001
         df_pal = df_pal.pivot(index='Child', columns='Wave')['Steps']
         # Avg wave 5 data is assigned as PAL
         return dict(df_pal[5])
@@ -56,7 +58,7 @@ class Population:
         # Read data
         fitbit_new = pd.read_csv(self.input_args['agent_pal_file'], sep=';', header=0)
         steps_mean_wave_new = fitbit_new.groupby(['Child', 'Wave']).mean()['Steps'].reset_index()
-        steps_mean_wave_new.Steps = steps_mean_wave_new.Steps * 0.000153
+        steps_mean_wave_new.Steps = steps_mean_wave_new.Steps * 0.0001
         steps_mean_wave_new = steps_mean_wave_new.pivot(index='Child', columns='Wave')['Steps']
 
         steps_wave1 = steps_mean_wave_new[1]
@@ -127,28 +129,6 @@ class Population:
 
         return dict(bmi)
 
-    def fix_float64(self,orig_dict):
-
-        '''
-        Helper method converts the numpy.float64 values from a dictionary to native float type.
-
-        Args:
-            orig_dict (dict): original dictionary with fault floats
-
-        Returns:
-            dictionary: Dictionary with updated float values.
-        '''
-
-        new_dict = {}
-        for k, item in orig_dict.items():
-            try:    
-                new_dict[k] = -1.0 if np.isnan(item) else item.item()
-            except:
-                new_dict[k] = -1.0
-
-
-        return new_dict
-
 
     def assign_basic(self):
 
@@ -171,30 +151,6 @@ class Population:
         class_df = pp['class']
 
         return dict(gender_df), dict(age_df), dict(class_df)
-
-
-    def get_empirical(self,metric='steps',classes=[]):
-        '''
-        Get empirical physical activity data. 
-
-        Args:
-            metric (str): physical activity metrics to use. default is number of steps.
-            classes (array): list of class ids
-
-        Returns:
-            dataframe: physical activity data (steps) per child and wave.
-        '''
-
-        df_pal = pd.read_csv(self.input_args['agent_pal_file'], sep=';', header=0, encoding='latin-1')
-        df_pal = df_pal[df_pal['Child'].isin(self.input_args['participants'])]
-
-        df_pal = df_pal.groupby(['Child', 'Wave']).mean()['Steps'].reset_index()
-        df_pal.Steps = df_pal.Steps * 0.000153
-        df_pal = df_pal.pivot(index='Child', columns='Wave')['Steps']
-
-        return df_pal
-
-
 
     def get_subgraphs_centrality(self,graph,centrality_type='indegree'):
         '''
@@ -1388,12 +1344,12 @@ class PeerNominatedDataPopulation(Population):
             environment_dict = self.assign_environment()
             bmi_dict = self.assign_bmi()
 
-            PA_dict = self.fix_float64(PA_dict)
-            gender_dict = self.fix_float64(gender_dict)
-            age_dict = self.fix_float64(age_dict)
-            class_dict = self.fix_float64(class_dict)
-            environment_dict = self.fix_float64(environment_dict)
-            bmi_dict = self.fix_float64(bmi_dict)
+            PA_dict = utils.fix_float64(PA_dict)
+            gender_dict = utils.fix_float64(gender_dict)
+            age_dict = utils.fix_float64(age_dict)
+            class_dict = utils.fix_float64(class_dict)
+            environment_dict = utils.fix_float64(environment_dict)
+            bmi_dict = utils.fix_float64(bmi_dict)
 
             nx.set_node_attributes(graph, values=PA_dict, name='PA')
             nx.set_node_attributes(graph, values=gender_dict, name='gender')
@@ -1408,8 +1364,6 @@ class PeerNominatedDataPopulation(Population):
                 obesity_class[node] = self.get_bmi_cat(gender_dict[node], age_dict[node], bmi_dict[node])
 
             nx.set_node_attributes(graph, values=obesity_class, name='bmi_cat')
-
-
 
             # Save the connections file in the results folder
             df_nomination_connections.to_csv(('../output/nomination_connections.csv'))
@@ -1520,12 +1474,12 @@ class CommunicationDataPopulation(Population):
             environment_dict = self.assign_environment()
             bmi_dict = self.assign_bmi()
 
-            PA_dict = self.fix_float64(PA_dict)
-            gender_dict = self.fix_float64(gender_dict)
-            age_dict = self.fix_float64(age_dict)
-            class_dict = self.fix_float64(class_dict)
-            environment_dict = self.fix_float64(environment_dict)
-            bmi_dict = self.fix_float64(bmi_dict)
+            PA_dict = utils.fix_float64(PA_dict)
+            gender_dict = utils.fix_float64(gender_dict)
+            age_dict = utils.fix_float64(age_dict)
+            class_dict = utils.fix_float64(class_dict)
+            environment_dict = utils.fix_float64(environment_dict)
+            bmi_dict = utils.fix_float64(bmi_dict)
 
             nx.set_node_attributes(graph, values=PA_dict, name='PA')
             nx.set_node_attributes(graph, values=gender_dict, name='gender')

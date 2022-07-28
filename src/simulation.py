@@ -22,7 +22,7 @@ class Simulation:
         self.input_args = utils.load_input_args(file = '../input/simulation.json')
         self.PeerNominatedDataPopulation = p.PeerNominatedDataPopulation('Peer-Nominated data population', self.input_args)
         self.CommunicationDataPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args)
-        self.model = m.DiffusionModel('Gabrianelli Diffusion Model', self.input_args)
+        self.model = m.DiffusionModel(self.input_args)
         
     def simulate_preinterventions(self,time,population_name,threshold,ipa):
         '''
@@ -34,59 +34,50 @@ class Simulation:
             ipa(float): diffusion model I_PA
         Returns:
             dictionary: Simulation outcomes dictionaries. Full (per child) and averaged (per class). Followed by a dataframe with the selected influencers per class
-        '''       
-        
-        percent = self.input_args['percent'] 
-        generateGephiFiles = self.input_args['generateGephiFiles'] 
-        writeToExcel = self.input_args['writeToExcel'] 
+        '''
 
-        # set model thresholds
+        # set model parameters
         self.model.setThresholdPA(threshold)
         self.model.setIPA(ipa)
 
-        #outcomes of the intervention
-        simulation_outcomes_child = {}
-        simulation_outcomes_avg = {}
-        snapshot_pa = {}
         if(population_name == 'nomination'):
             population = self.PeerNominatedDataPopulation
         elif(population_name == 'communication'):
             population = self.CommunicationDataPopulation
-        
- 
-        # each classroom_population is a graph
-        for classroom_population in population.get_class_graphs(population.graph):
 
-            classroom_population_id = list(classroom_population.nodes(data='class'))[1][1]
-            simulation_outcomes_child[str(classroom_population_id)] = {}
-            simulation_outcomes_avg[str(classroom_population_id)] = {}
-        
-            c = classroom_population.copy()
+        # outcomes of the intervention
+        simulation_outcomes_child = {}
+        simulation_outcomes_class = {}
+        snapshot_pa = {}
 
-            #    print('before preintervention class', c.nodes.data())
+        # run the model per class. Each class_population is a graph
+        for class_population in population.get_class_graphs(population.graph):
+            class_id = list(class_population.nodes(data='class'))[1][1]
+            simulation_outcomes_child[str(class_id)] = {}
+            simulation_outcomes_class[str(class_id)] = {}
+
+            cl_pop = class_population.copy()
+            #print('before preintervention class', c.nodes.data())
             #running the simulation, executing the model with every timestamp
             for t in range(0,time):
-                c = self.model.execute(c,t)
+                sim_pop = self.model.execute(cl_pop,t)
 
-            outcomes_in_dict = utils.get_PA_dictionary(c)
+            outcomes_in_dict = utils.get_PA_dictionary(sim_pop)
 
             #snapshot of the last 
-            results_dict = dict(c.nodes(data=True))
+            results_dict = dict(sim_pop.nodes(data=True))
             for k, v in results_dict.items():
                 #taking the last element of all the saved PA_hist values
                 snapshot_pa[k] = results_dict[k]['PA_hist'][-1]
-                #print('after preintervention class',c.nodes.data())
+                #print('after preintervention',snapshot_pa[k])
                
-            simulation_outcomes_child[str(classroom_population_id)]['presimulation_nointervention'] = outcomes_in_dict
-            simulation_outcomes_avg[str(classroom_population_id)]['presimulation_nointervention'] = outcomes_in_dict.mean(axis=1)
+            simulation_outcomes_child[str(class_id)] = outcomes_in_dict
+            simulation_outcomes_class[str(class_id)] = outcomes_in_dict.mean(axis=1)
 
-            
-#         print('snapshot_PA',snapshot_pa)
+        return simulation_outcomes_child, simulation_outcomes_class, snapshot_pa
 
 
-        return simulation_outcomes_child,simulation_outcomes_avg,snapshot_pa
-
-    def simulate_interventions(self,time,population_name,preintervention_snapshot_PA,threshold,ipa):
+    def simulate_interventions(self,time,population_name,preintervention_snapshot_PA,threshold,ipa,run_no):
         '''
         Method for running the ABM simulations.
 
@@ -99,110 +90,117 @@ class Simulation:
         Returns:
             dictionary: Simulation outcomes dictionaries. Full (per child) and averaged (per class). Followed by a dataframe with the selected influencers per class
         '''        
-        percent = self.input_args['percent'] 
-        generateGephiFiles = self.input_args['generateGephiFiles'] 
-        writeToExcel = self.input_args['writeToExcel'] 
-        intervention_strategies = self.input_args['intervention_strategy']
 
-        # set model thresholds
+        generateGephiFiles = self.input_args['generateGephiFiles'] 
+        writeToExcel = self.input_args['writeToExcel']
+
+        # intervention parameters
+        intervention_strategies = self.input_args['intervention_strategy']
+        percent = self.input_args['percent']
+
+        # set model paramters
         self.model.setThresholdPA(threshold)
         self.model.setIPA(ipa)
 
-        #selected infuential agents
+        # outcome: selected influential agents
         simulation_selected_agents = {}
-        #outcomes of the intervention
+
+        # outcomes of the simulation
         simulation_outcomes_child = {}
-        simulation_outcomes_avg = {}
-        
+        simulation_outcomes_class = {}
+
+        # select population data
         if(population_name == 'nomination'):
             population = self.PeerNominatedDataPopulation
         elif(population_name == 'communication'):
             population = self.CommunicationDataPopulation
 
+        # set initial PA to snapshot based on pre-intervention simulations
         #print('PRE SNAPSHOT',population.graph.nodes(data='PA'))
         nx.set_node_attributes(population.graph, values=preintervention_snapshot_PA, name='PA')
         #print('POST SNAPSHOT',population.graph.nodes(data='PA'))
-        for classroom_population in population.get_class_graphs(population.graph):
 
-            classroom_population_id = list(classroom_population.nodes(data='class'))[1][1]
-            simulation_outcomes_child[str(classroom_population_id)] = {}
-            simulation_outcomes_avg[str(classroom_population_id)] = {}
-            simulation_selected_agents[str(classroom_population_id)] = {}
+        # run the model per intervention
+        for intervention in intervention_strategies:
+            simulation_outcomes_child[intervention] = {}
+            simulation_outcomes_class[intervention] = {}
+            simulation_selected_agents[intervention] = {}
 
-            for intervention in intervention_strategies:
-                c = classroom_population.copy()
-                # modifies the PA of particular agents selected as influential 
-                agent_selection_tuple = population.select_influential_agents(c, percent, intervention, False)
-                # updated graph with enhanced PA in influential agents
-                cl_pop = agent_selection_tuple[0]
-                selected_agents = agent_selection_tuple[1]
+            for class_population in population.get_class_graphs(population.graph):
+                class_id = list(class_population.nodes(data='class'))[1][1]
+                simulation_outcomes_child[intervention][str(class_id)] = {}
+                simulation_outcomes_class[intervention][str(class_id)] = {}
+                simulation_selected_agents[intervention][str(class_id)] = {}
+
+                cl_pop = class_population.copy()
+
+                # selects influential agents
+                influential_agent_selection = population.select_influential_agents(cl_pop, percent, intervention, False)
+                # update graph with intervention: increased PA in influential agents
+                cl_pop_new = influential_agent_selection[0]
+                selected_agents = influential_agent_selection[1]
+
                 #running the simulation, executing the model with every timestamp
                 for t in range(0,time):
-                    cl_pop = self.model.execute(cl_pop,t)
+                    sim_pop = self.model.execute(cl_pop_new,t)
                 
-                outcomes_in_dict = utils.get_PA_dictionary(cl_pop)
-                simulation_outcomes_child[str(classroom_population_id)][intervention] = outcomes_in_dict
-                simulation_outcomes_avg[str(classroom_population_id)][intervention] = outcomes_in_dict.mean(axis=1)
-                simulation_selected_agents[str(classroom_population_id)][intervention] = selected_agents
-        
-        if writeToExcel:
-            self.interventionResultsToExcel(simulation_outcomes_child)
-            
+                outcomes_in_dict = utils.get_PA_dictionary(sim_pop)
+                simulation_outcomes_child[intervention][str(class_id)] = outcomes_in_dict
+                simulation_outcomes_class[intervention][str(class_id)] = outcomes_in_dict.mean(axis=1)
+                simulation_selected_agents[intervention][str(class_id)] = selected_agents
+
+
+        # influential agents
         df_agents_list = []
         for outer_dict in simulation_selected_agents.items():
             for intv in outer_dict[1]:
                 if(intv != 'nointervention'):
                     df_agents_list.append([outer_dict[0],intv,outer_dict[1][intv]])
 
-        df_agents = pd.DataFrame(df_agents_list, columns = ["SchoolClass", "Intervention", "InfluenceAgents"])
-        directory = '../output/selectedAgents'
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        df_agents.to_excel(directory + 'selected_agents_'+ population_name + '_'+str(threshold) + '_'+str(ipa) +'.xlsx')
+        df_agents = pd.DataFrame(df_agents_list, columns = ["Intervention", "SchoolClass", "InfluenceAgents"])
+
+        if writeToExcel:
+            self.interventionResultsToExcel(simulation_outcomes_child, intervention_strategies, population_name, run_no)
+
+            directory = '../output/simulation/'+population_name+'/influentialAgents/'
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+            df_agents.to_excel(directory + 'run' + str(run_no) + '.xlsx')
 
 
-        return simulation_outcomes_child,simulation_outcomes_avg,df_agents
+        return simulation_outcomes_child, simulation_outcomes_class, df_agents
 
             
 
-    def interventionResultsToExcel(self,results):
+    def interventionResultsToExcel(self,results,intervention_strategies, population_name, run_no):
         '''
         Saves the simulated intervention outcomes in excel file. 
         
         Args:
-            results (dictionary): simulated intervention outcomes
-        
+            results (dictionary): simulation output
+            intervention_strategies (string): interventions
+            population_name (string): peer-nomination network or online-communication network
+            run_no (int): run number
         '''
-        for class_id,res in results.items():
-            
-            directory='../output/class'+repr(int(float(class_id)))
-            
+        for intervention in intervention_strategies:
+            res_intervention = results[intervention]
+            directory = '../output/simulation/' + population_name + '/' + intervention
+
             if not os.path.exists(directory):
                 os.makedirs(directory)
-            
-            filename=directory+'/'+repr(int(float(class_id)))+'.xls'
-            
-            w = Workbook()
-            ws = w.add_sheet(class_id.strip('\'') + ' Simulation Outcomes')
-                          
-            #loop the dataframe
-            rowNum=0
-            colNum=0  
-            
-            for i in self.input_args['intervention_strategy']:                             
-                col=list(res[i])
-                colLen=len(col)
-                
-                #writing the labels in excel sheet
-                ws.write(rowNum,colNum,i)
-                for c in col: 
-                    rowNum=rowNum+1
-                    ws.write(rowNum,colNum,c)
 
-                colNum = colNum + 1
-                rowNum = 0
+            filename = directory + '/run' + str(run_no) + '.xlsx'
+            writer = pd.ExcelWriter(filename, engine='xlsxwriter')
 
-            w.save(filename)
+            for class_id, res in res_intervention.items():
+
+                #directory='../output/simulation/class'+repr(int(float(class_id)))
+
+
+                res.to_excel(writer, sheet_name='class'+repr(int(float(class_id))))
+
+            writer.save()
+
             
     def getSuccessRates(self,results):
         '''

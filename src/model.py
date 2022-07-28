@@ -4,7 +4,7 @@ import pandas as pd
 
 class Model:
     '''
-        Base Model Class.
+    Base Model Class.
     '''    
     def __init__(self,name):
         self.name = name
@@ -17,10 +17,9 @@ class Model:
     
 class DiffusionModel(Model):
     '''
-        Diffusion Model Class.
+    Diffusion Model Class.
     '''     
-    def __init__(self, name, input_args):
-        self.name = name
+    def __init__(self, input_args):
         self.input_args = input_args
         self.thres_PA = self.input_args['thres_PA']
         self.I_PA = self.input_args['I_PA']

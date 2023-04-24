@@ -719,10 +719,8 @@ class Population:
         population_list = []
         node_data_list = []
         for subgraph in self.get_class_graphs(graph):
-
             dict_out_degree = dict(subgraph.out_degree())
             dict_in_degree = dict(subgraph.in_degree())
-            dict_eigen_vector = dict(nx.eigenvector_centrality(subgraph))
             dict_closeness = dict(nx.closeness_centrality(subgraph))
             dict_betweenness = dict(nx.betweenness_centrality(subgraph))
 
@@ -782,7 +780,7 @@ class Population:
                     isolated_nodes.append(nodedata[0])
 
                 #participant-level data
-                node_data_list.append([nodedata[0], nodedata[1]['class'], nodedata[1]['gender'], nodedata[1]['PA'], nodedata[1]['bmi'],nodedata[1]['env'],dict_in_degree[nodedata[0]], dict_out_degree[nodedata[0]],dict_eigen_vector[nodedata[0]],dict_closeness[nodedata[0]],dict_betweenness[nodedata[0]],avg_weight])
+                node_data_list.append([nodedata[0], nodedata[1]['class'], nodedata[1]['gender'], nodedata[1]['PA'], nodedata[1]['bmi'],nodedata[1]['env'],dict_in_degree[nodedata[0]], dict_out_degree[nodedata[0]],dict_closeness[nodedata[0]],dict_betweenness[nodedata[0]],avg_weight])
 
             #population level data
             population_list.append([nodedata[1]['class'],total_agents,int((gender_f/total_agents)*100),subgraph.number_of_edges(), round(nx.density(subgraph),2), len(isolated_nodes),round(sum_ind/dividor_ind,2),round(sum_outd/dividor_outd,2),round(sum_close/dividor_close,2),round(sum_beetwn/dividor_beetwn,2),round(nx.degree_assortativity_coefficient(subgraph),2),round(avg_envorinment_score/total_agents,2),round(avg_bmi_score/total_agents,2)])
@@ -791,7 +789,7 @@ class Population:
         #create the dataframes
         df_population_details = pd.DataFrame(population_list, columns = ["SchoolClassID", "NumberOfAgents", "PercentageFemale", "NumberConnections", "Density", "IsolatedNodes","CentralizationInDegree", "CentralizationOutDegree", "CentralizationCloseness", "CentralizationBetweenness", "DegreeAssortativity","AverageEnvironmentScore","AverageBMIScore"])
 
-        df_agent_details = pd.DataFrame(node_data_list, columns = ["ParticipantID","SchoolClassID", "Gender", "PA", "BMI", "Environment", "InDegree", "OutDegree", "EigenVector", "Closeness", "Betweenness","Average_Weight"])
+        df_agent_details = pd.DataFrame(node_data_list, columns = ["ParticipantID","SchoolClassID", "Gender", "PA", "BMI", "Environment", "InDegree", "OutDegree", "Closeness", "Betweenness","Average_Weight"])
 
         if self.input_args['writeToExcel']:
             df_population_details.to_excel('../output/population_details.xlsx')
@@ -1230,6 +1228,161 @@ class Population:
         return category
         
         
+class SocialFacilitationPopulation(Population):
+    '''
+        Population Class build on Social Facilitation Data.
+    '''
+    def __init__(self,name,input_args):
+        self.name = name
+        self.input_args = input_args
+        self.graph = self.create_population(nx.DiGraph())
+
+    def create_population(self,graph):
+            '''
+            Create a social facilitation population in a graph representation. The connections (edges) are created based on the social facilitation nomination question. The weights are created based on three other nomination questions (GEN_Want2B, GEN_Advice, GEN_Leader). The agents (nodes) are assigned attributes regarding age, gender, PAL, env.
+            
+            Args:
+                graph (Graph): initial empty graph
+
+            Returns:
+            NetworkX DiGraph: updated graph with weighted connections.
+            '''
+
+            graph = graph
+            formula = ''
+
+            list_participants = self.input_args['participants']
+            label = self.input_args['network']
+            class_list = self.input_args['classes']
+
+
+            df_nom = pd.read_csv(self.input_args['peer_nomination_file'], sep=';', header=0, encoding='latin-1')
+            # onlu include selected participants
+            df_nom = df_nom[df_nom.Child.isin(list_participants)]
+            #df_nom = df_nom[df_nom.Alter.isin(list_participants)] not used anymore because we first need to create nodes for all children. Afterwards, we filter Alters.
+            
+            # differentiate by GEN_Social_Facilitation 
+            # this dataframe will be used to calculate the edges
+            df_edges = df_nom[df_nom.Variable == 'GEN_Social_Facilitation']
+            # this one will be used to derive the weights 
+            df_nom = df_nom[df_nom.Variable != 'GEN_Social_Facilitation']
+            
+            
+            for cl in df_nom['Class'].unique():
+                children = df_nom[df_nom.Class.isin([cl])].Child.unique()
+                for key in children:
+                    graph.add_node(key)
+    
+            # Only select alters present in the class of the child (i.e. participant)
+            nom_temp = []
+            for cl in df_nom['Class'].unique():
+                df_temp = df_nom[df_nom.Class.isin([cl])]
+                children_in_class = df_temp.Child.unique()
+                df_temp = df_temp[df_temp.Alter.isin(children_in_class)]
+                nom_temp.append(df_temp)
+            df_nom = pd.concat(nom_temp)
+
+            # Read formula to calculate the weight for the connections
+            try:
+                if label is None:
+                    formula = json.loads(open('../input/connections.json').read())
+                elif label=='all':
+                    formula = json.loads(open('../input/connections_all.json').read())
+                elif label=='gen':
+                    formula = json.loads(open('../input/connections_gen.json').read())
+                elif label=='friend':
+                    formula = json.loads(open('../input/connections_friend.json').read())
+            except Exception as ex:
+                print('File {}settings/connections_{}.json does not exist!')
+                print(ex)
+                return
+
+             # Sum of all weights from the formula, -1 since we removed GEN_Social_Facilitation
+            max_score = sum(formula.values()) - 1
+            # Create a dictionary with the connections and weights
+            connections_dict = {}
+            weight_dict = {}
+            
+            for child in list(list_participants):
+                connections_dict[child] = {}
+                weight_dict[child] = {}
+            
+            # To avoid repetition of nominations in different waves
+            nominations_list = []
+
+            for line in df_nom[['Child', 'Alter', 'Variable']].iterrows():
+                (ch, nom, var) = line[1]  
+                
+                # Verify if nominated is in the list of participants (pp)
+                if nom in list_participants and (ch, nom, var) not in nominations_list:
+                    # Add value in the key
+                    connections_dict[ch][nom] = connections_dict[ch].get(nom, 0) + 1*formula[var]
+                    nominations_list.append((ch, nom, var))
+                    
+            # Make a dataframe and normalize the values for the edges
+            connections_df = pd.DataFrame(connections_dict).fillna(0)/max_score
+            connections_dict = connections_df.to_dict()
+            # eric approach : child(node[0])-succ;nominated(node[1])-pred;weight
+            # thabo approach: child(node[0])-pred;nominated(node[1])-succ;weight
+
+            #An arrow (x, y) is considered to be directed from x to y; y is called the head and x is called the tail of the arrow; y is said to be a direct successor of x and x is said to be a direct predecessor of y.
+            
+
+            # Create the edges in the graph
+            df_nomination_connections = []
+            for node in connections_dict.items():           
+                pred = node[0]
+                origins = node[1]
+                for succ, weight in origins.items():
+                    # if there is a weight > 0 - under this assumption we build only those 
+                    if weight > 0:
+                        # only if there is an edge 
+                        if(((df_edges['Child'] == pred) & (df_edges['Alter'] == succ)).any()):
+#                             print('Adding edge ',pred,succ,weight)
+                            graph.add_edge(pred,succ,weight=weight)
+                            df_nomination_connections.append([pred,succ,weight])
+                        
+                        
+            df_nomination_connections = pd.DataFrame(df_nomination_connections, columns = ["ChildID", "AlterID", "Weight"])
+        #                 print('pred: '+ repr(pred)+' succ:'+repr(succ)+' weight:'+repr(weight))
+
+            # POPULATE THE AGENTS
+            PA_dict = self.assign_PA(metric='steps')
+            if(self.input_args['assign_PA_random']):
+                PA_dict = self.assign_PA_random(PA_dict)
+
+            gender_dict, age_dict, class_dict = self.assign_basic()
+            environment_dict = self.assign_environment()
+            bmi_dict = self.assign_bmi()
+
+            PA_dict = utils.fix_float64(PA_dict)
+            gender_dict = utils.fix_float64(gender_dict)
+            age_dict = utils.fix_float64(age_dict)
+            class_dict = utils.fix_float64(class_dict)
+            environment_dict = utils.fix_float64(environment_dict)
+            bmi_dict = utils.fix_float64(bmi_dict)
+
+            nx.set_node_attributes(graph, values=PA_dict, name='PA')
+            nx.set_node_attributes(graph, values=gender_dict, name='gender')
+            nx.set_node_attributes(graph, values=age_dict, name='age')
+            nx.set_node_attributes(graph, values=class_dict, name='class')
+            nx.set_node_attributes(graph, values=environment_dict, name='env')
+            nx.set_node_attributes(graph, values=bmi_dict, name='bmi')
+
+            # Adding category for the nodes
+            obesity_class = {}
+            for node in graph.nodes():
+                obesity_class[node] = self.get_bmi_cat(gender_dict[node], age_dict[node], bmi_dict[node])
+
+            nx.set_node_attributes(graph, values=obesity_class, name='bmi_cat')
+
+            # Save the connections file in the results folder
+            df_nomination_connections.to_csv(('../output/social_facilitation_connections.csv'))
+
+            return graph
+        
+        
+        
 class PeerNominatedDataPopulation(Population):
     '''
         Population Class build on Peer Nomination Data.
@@ -1369,6 +1522,7 @@ class PeerNominatedDataPopulation(Population):
             df_nomination_connections.to_csv(('../output/nomination_connections.csv'))
 
             return graph
+
 
 
 class CommunicationDataPopulation(Population):

@@ -20,6 +20,8 @@ class Simulation:
     '''    
     def __init__(self, **args):
         self.input_args = utils.load_input_args(file = '../input/simulation.json')
+        
+        self.SocialFacilitationPopulation = p.SocialFacilitationPopulation('SocialFacilitationPopulation data population', self.input_args)
         self.PeerNominatedDataPopulation = p.PeerNominatedDataPopulation('Peer-Nominated data population', self.input_args)
         self.CommunicationDataPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args)
         self.model = m.DiffusionModel(self.input_args)
@@ -39,8 +41,10 @@ class Simulation:
         # set model parameters
         self.model.setThresholdPA(threshold)
         self.model.setIPA(ipa)
-
-        if(population_name == 'nomination'):
+        
+        if(population_name == 'socialfacilitation'):
+            population = self.SocialFacilitationPopulation
+        elif(population_name == 'nomination'):
             population = self.PeerNominatedDataPopulation
         elif(population_name == 'communication'):
             population = self.CommunicationDataPopulation

@@ -1264,8 +1264,6 @@ class SocialFacilitationPopulation(Population):
             # differentiate by GEN_Social_Facilitation 
             # this dataframe will be used to calculate the edges
             df_edges = df_nom[df_nom.Variable == 'GEN_Social_Facilitation']
-            # this one will be used to derive the weights 
-            df_nom = df_nom[df_nom.Variable != 'GEN_Social_Facilitation']
             
             
             for cl in df_nom['Class'].unique():
@@ -1298,7 +1296,7 @@ class SocialFacilitationPopulation(Population):
                 return
 
              # Sum of all weights from the formula, -1 since we removed GEN_Social_Facilitation
-            max_score = sum(formula.values()) - 1
+            max_score = sum(formula.values())
             # Create a dictionary with the connections and weights
             connections_dict = {}
             weight_dict = {}

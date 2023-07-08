@@ -8,6 +8,7 @@ import src.population as p
 import src.model as m
 import src.utils as utils
 
+
 class Tuning:
     '''
         Tuning class. Algorthims for parameter tuning.
@@ -15,8 +16,11 @@ class Tuning:
 
     def __init__(self):
         self.input_args = utils.load_input_args('../input/simulation.json')
-        self.nominationPopulation = p.PeerNominatedDataPopulation('Peer-Nominated data population', self.input_args)
+        self.nominationPopulation = p.PeerNominatedDataPopulation('Peer-Nomination data population', self.input_args)
         self.communicationPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args)
+        self.nominationSocialPopulation = p.PeerNominationSocialPopulation('Peer-Nomination Social data population',
+                                                                           self.input_args)
+
         self.model = m.DiffusionModel(self.input_args)
 
     def execute(self):
@@ -72,6 +76,7 @@ class Tuning:
         Args:
             graph (Graph): model output
             empirical (dictionary): empirical data
+            time (integer): duration of simulation in days
 
         Returns:
             sum of squared errors (SSE)
@@ -79,27 +84,32 @@ class Tuning:
 
         # extract model output at baseline (W1), 1 year (W4), and 2 years (W5)
         sim = pd.DataFrame(graph)
-        sim = sim.iloc[[0, (time-1)]].T
-        sim.columns = ['W1', 'W5']
+        sim = sim.iloc[[(time-365-1), (time - 1)]].T
+        sim.columns = ['Y2', 'Y3']
 
         # rename columns of empirical data
         empirical.columns = ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7']
         empirical = empirical.set_index(sim.index)
 
-        # SSE wave 4 (not used)
-        #error_w4 = ((sim[['W4']] - empirical[['W4']]) ** 2).sum().sum()
+        # SSE of YEAR 2 (W4)
+        error_w4 = ((sim['Y2'] - empirical['W4']) ** 2).sum()
 
-        # calculate SSE of W5
-        error_w5 = (((sim[['W5']]) - (empirical[['W5']])) ** 2).sum().sum()
+        # calculate SSE of YEAR 3 (W5)
+        emp = (empirical['W5'] + empirical['W6'] + empirical['W7']) / 3
+        # error_w5 = (((sim[['W5']]) - emp) ** 2).sum().sum()
+        error_w5 = (((sim['Y3']) - emp) ** 2).sum()
 
-        #print(empirical[['W5']])
+        error_w4_mean = ((sim['Y2'].mean() - empirical['W5'].mean()) ** 2)
+        error_w5_mean = ((sim['Y3'].mean() - empirical['W5'].mean()) ** 2)
 
-        return error_w5
+        return (error_w4 + error_w5), error_w5, (error_w4_mean + error_w5_mean)
+
 
 class GridSearch(Tuning):
     '''
         Grid search subclass.
     '''
+
     def __init__(self):
         super(GridSearch, self).__init__()
 
@@ -118,15 +128,20 @@ class GridSearch(Tuning):
         '''
 
         # empirical data
-        empirical_data = utils.get_empirical_data(file = self.input_args['agent_pal_file'], classes = self.input_args['classes'])
+        empirical_data = utils.get_empirical_data(file=self.input_args['agent_pal_file'],
+                                                  classes=self.input_args['classes'])
 
         # population
-        if (population_name == 'nomination'):
+        if population_name == 'nomination':
             population = self.nominationPopulation
-        elif (population_name == 'communication'):
+        elif population_name == 'communication':
             population = self.communicationPopulation
+        elif population_name == 'nomination_social':
+            population = self.nominationSocialPopulation
 
-        list_error = []
+        list_error_all = []
+        list_error_w5 = []
+        list_m_error_all = []
         list_child = []
         list_class = []
         # Run the model for each parameter combination of thres_mesh and i_PA_mesh
@@ -138,17 +153,20 @@ class GridSearch(Tuning):
                 end_time = time()
 
                 # Goodness-of-fit
-                new_gof = self.get_error(graph=sim_cl, empirical=empirical_data, time=t)
-                list_error.append((thres, i, new_gof))
+                gof_all, gof1, m_gof_all = self.get_error(graph=sim_cl, empirical=empirical_data, time=t)
+                list_error_all.append((thres, i, gof_all))
+                list_error_w5.append((thres, i, gof1))
+                list_m_error_all.append((thres, i, m_gof_all))
                 list_child.append(sim_child)
                 list_class.append(sim_cl)
 
                 # Print progress
-                print('thres_PA:', thres, 'I_PA:', i, 'error:', new_gof, 'runtime:', (end_time - init_time))
+                print('thres_PA:', thres, 'I_PA:', i, 'error:', gof_all, gof1, m_gof_all,
+                      'runtime:', (end_time - init_time))
 
-        return list_error, list_child, list_class, empirical_data
+        return list_error_all, list_error_w5, list_m_error_all, list_child, list_class
 
-    def executeSet(self, param_set, t, population_name):
+    def execute_set(self, param_set, t, population_name):
         '''
         Run the model for a single parameter combination
 
@@ -163,41 +181,50 @@ class GridSearch(Tuning):
 
         # empirical data
         empirical_data = utils.get_empirical_data(file=self.input_args['agent_pal_file'],
-                                                 classes=self.input_args['classes'])
+                                                  classes=self.input_args['classes'])
 
         # population
-        if (population_name == 'nomination'):
+        if population_name == 'nomination':
             population = self.nominationPopulation
-        elif (population_name == 'communication'):
+        elif population_name == 'communication':
             population = self.communicationPopulation
+        elif population_name == 'nomination_social':
+            population = self.nominationSocialPopulation
 
-        list_error = []
+        list_error_all = []
+        list_error_w5 = []
+        list_m_error_all = []
         list_child = []
         list_class = []
         for params in param_set:
             thres = params[0]
-            ipa = params[1]
+            i = params[1]
             # Run the model
             init_time = time()
-            sim_child, sim_cl = self.simulate(population, thres, ipa, t)
+            sim_child, sim_cl = self.simulate(population, thres, i, t)
             end_time = time()
 
             # Goodness-of-fit
-            new_gof = self.get_error(graph=sim_cl, empirical=empirical_data, time = t)
-            list_error.append((thres, ipa, new_gof))
+            gof_all, gof1, m_gof_all = self.get_error(graph=sim_cl, empirical=empirical_data,
+                                                      time=t)
+            list_error_all.append((thres, i, gof_all))
+            list_error_w5.append((thres, i, gof1))
+            list_m_error_all.append((thres, i, m_gof_all))
             list_child.append(sim_child)
             list_class.append(sim_cl)
 
             # Print progress
-            print('thres_PA:', thres, 'I_PA:', ipa, 'error:', new_gof, 'runtime:', (end_time - init_time))
+            print('thres_PA:', thres, 'I_PA:', i, 'error:', gof_all, gof1, m_gof_all,
+                  'runtime:', (end_time - init_time))
 
-        return list_error, list_child, list_class, empirical_data
+        return list_error_all, list_error_w5, list_m_error_all, list_child, list_class
 
 
 class SimulatedAnnealing(Tuning):
     '''
        Simulated annealling subclass.
     '''
+
     def __init__(self):
         super(SimulatedAnnealing, self).__init__()
 
@@ -218,13 +245,16 @@ class SimulatedAnnealing(Tuning):
         initial_parameters = [t_initial, i_initial]
 
         # Get empirical data
-        empirical_data = self.get_empirical_data(file=self.input_args['agent_pal_file'], classes=self.input_args['classes'])
+        empirical_data = self.get_empirical_data(file=self.input_args['agent_pal_file'],
+                                                 classes=self.input_args['classes'])
 
         # Get population data
         if (population_name == 'nomination'):
             population = self.nominationPopulation
         elif (population_name == 'communication'):
             population = self.communicationPopulation
+        elif (population_name == 'social'):
+            population = self.socialPopulation
 
         # Keeping history (vectors)
         error_hist = list([])
@@ -243,13 +273,14 @@ class SimulatedAnnealing(Tuning):
         parameters_hist.append(initial_parameters)
 
         # Print progress
-        print('thres_PA: ', initial_parameters[0], " I_PA: ", initial_parameters[1], "|runtime: ", (end_time - init_time))
+        print('thres_PA: ', initial_parameters[0], " I_PA: ", initial_parameters[1], "|runtime: ",
+              (end_time - init_time))
 
         # Simulated annealing settings
-        T = 1.0 # initial temperature
-        T_min = 0.01 # minimum temperature
-        alpha = 0.9 # cooling factor
-        n_neighbors = 20 # number of neighbors explored
+        T = 1.0  # initial temperature
+        T_min = 0.01  # minimum temperature
+        alpha = 0.9  # cooling factor
+        n_neighbors = 20  # number of neighbors explored
 
         parameters = initial_parameters
 
@@ -268,7 +299,7 @@ class SimulatedAnnealing(Tuning):
 
                 # Print progress
                 print(T, i, 'thres_PA:', new_parameters[0], "I_PA:", new_parameters[1], 'SSE:', new_error,
-                      'runtime:',(end_time - init_time))
+                      'runtime:', (end_time - init_time))
 
                 if new_error < old_error:
                     parameters = new_parameters
@@ -339,5 +370,3 @@ class SimulatedAnnealing(Tuning):
         probability = np.exp(-delta / T)
 
         return probability
-
-

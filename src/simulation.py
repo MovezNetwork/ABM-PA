@@ -21,11 +21,11 @@ class Simulation:
     def __init__(self, **args):
         self.input_args = utils.load_input_args(file = '../input/simulation.json')
         
-        self.SocialFacilitationPopulation = p.SocialFacilitationPopulation('SocialFacilitationPopulation data population', self.input_args)
-        self.PeerNominatedDataPopulation = p.PeerNominatedDataPopulation('Peer-Nominated data population', self.input_args)
-        self.CommunicationDataPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args)
+        self.nominationPopulation = p.PeerNominatedDataPopulation('Peer-Nomination data population', self.input_args)
+        self.communicationPopulation = p.CommunicationDataPopulation('Communication data population', self.input_args)
+        self.nominationSocialPopulation = p.PeerNominationSocialPopulation('Peer-Nomination Social data population', self.input_args)
         self.model = m.DiffusionModel(self.input_args)
-        
+
     def simulate_preinterventions(self,time,population_name,threshold,ipa):
         '''
         Method for running the ABM pre-simulation (model calibration).
@@ -41,13 +41,14 @@ class Simulation:
         # set model parameters
         self.model.setThresholdPA(threshold)
         self.model.setIPA(ipa)
-        
-        if(population_name == 'socialfacilitation'):
-            population = self.SocialFacilitationPopulation
-        elif(population_name == 'nomination'):
-            population = self.PeerNominatedDataPopulation
-        elif(population_name == 'communication'):
-            population = self.CommunicationDataPopulation
+
+        # population
+        if population_name == 'nomination':
+            population = self.nominationPopulation
+        elif population_name == 'communication':
+            population = self.communicationPopulation
+        elif population_name == 'nomination_social':
+            population = self.nominationSocialPopulation
 
         # outcomes of the intervention
         simulation_outcomes_child = {}
@@ -81,7 +82,7 @@ class Simulation:
         return simulation_outcomes_child, simulation_outcomes_class, snapshot_pa
 
 
-    def simulate_interventions(self,time,population_name,preintervention_snapshot_PA,threshold,ipa,run_no):
+    def simulate_interventions(self,time,population_name,preintervention_snapshot_PA,threshold,ipa,effect,run_no):
         '''
         Method for running the ABM simulations.
 
@@ -113,11 +114,13 @@ class Simulation:
         simulation_outcomes_child = {}
         simulation_outcomes_class = {}
 
-        # select population data
-        if(population_name == 'nomination'):
-            population = self.PeerNominatedDataPopulation
-        elif(population_name == 'communication'):
-            population = self.CommunicationDataPopulation
+        # population
+        if population_name == 'nomination':
+            population = self.nominationPopulation
+        elif population_name == 'communication':
+            population = self.communicationPopulation
+        elif population_name == 'nomination_social':
+            population = self.nominationSocialPopulation
 
         # set initial PA to snapshot based on pre-intervention simulations
         #print('PRE SNAPSHOT',population.graph.nodes(data='PA'))
@@ -139,7 +142,7 @@ class Simulation:
                 cl_pop = class_population.copy()
 
                 # selects influential agents
-                influential_agent_selection = population.select_influential_agents(cl_pop, percent, intervention, False)
+                influential_agent_selection = population.select_influential_agents(cl_pop, percent, effect, intervention, False)
                 # update graph with intervention: increased PA in influential agents
                 cl_pop_new = influential_agent_selection[0]
                 selected_agents = influential_agent_selection[1]

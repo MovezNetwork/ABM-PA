@@ -45,7 +45,7 @@ class Population:
         # Avg wave 5 data is assigned as PAL
         return dict(df_pal[5])
 
-    def assign_PA_random(self, dict):
+    def assign_PA_random(self, dict, gender_dict):
         '''
         Assign random physical activity value for nodes. Based on the W1 PAL sampled data.
 
@@ -57,27 +57,39 @@ class Population:
         '''   
         # Read data
         fitbit_new = pd.read_csv(self.input_args['agent_pal_file'], sep=';', header=0)
-        steps_mean_wave_new = fitbit_new.groupby(['Child', 'Wave']).mean()['Steps'].reset_index()
-        steps_mean_wave_new.Steps = steps_mean_wave_new.Steps * 0.0001
-        steps_mean_wave_new = steps_mean_wave_new.pivot(index='Child', columns='Wave')['Steps']
 
-        steps_wave1 = steps_mean_wave_new[1]
-        PAL_wave1 = steps_wave1.dropna()
+        #steps_mean_wave_new = fitbit_new.groupby(['Child', 'Wave']).mean()['Steps'].reset_index()
+        #steps_mean_wave_new.Steps = steps_mean_wave_new.Steps * 0.0001
+        #steps_mean_wave_new = steps_mean_wave_new.pivot(index='Child', columns='Wave')['Steps']
+        #steps_wave1 = steps_mean_wave_new[1]
+        #PAL_wave1 = steps_wave1.dropna()
+
+        steps_by_sex_wave = fitbit_new.groupby(['Child', 'Sex', 'Wave']).mean()['Steps'].reset_index()
+        steps_by_sex_wave.Steps = steps_by_sex_wave.Steps * 0.0001
+        PAL_wave1_by_sex = steps_by_sex_wave[steps_by_sex_wave["Wave"] == 1]
+        PAL_wave1_by_sex = PAL_wave1_by_sex.dropna()
+        PAL_male = PAL_wave1_by_sex[(PAL_wave1_by_sex['Sex'] == 0)]
+        PAL_female = PAL_wave1_by_sex[(PAL_wave1_by_sex['Sex'] == 1)]
 
         # number of agents
-        n = len(dict.keys())
+        #n = len(dict.keys())
 
-        # sample from data
+        # set seed
         np.random.seed(self.input_args['random_seed'])
-        r = np.random.random_sample(n)
-        pal = np.quantile(PAL_wave1, q=r)
+        #r = np.random.random_sample(n)
+        #pal = np.quantile(PAL_wave1, q=r)
 
         # assign to dictionary
         i = 0
         for key in dict.keys():
-            dict[key] = pal[i]
+            r = np.random.random_sample(1)
+            if gender_dict[key] == 0:
+                pal_i = np.quantile(PAL_male.Steps, q=r)
+            else:
+                pal_i = np.quantile(PAL_female.Steps, q=r)
+            dict[key] = pal_i
             i = i + 1
-        #print(dict)
+        #print(sum(dict.values()) / len(dict))
 
         return dict
 
@@ -231,7 +243,7 @@ class Population:
         return class_dictionary
 
 
-    def select_influential_agents(self,graph, perc = 0, intervention = '', debug=False):
+    def select_influential_agents(self, graph, perc = 0, effect = 0, intervention = '', debug=False):
         '''
         Method for selecting influential agents based on a particular intervention strategy. 
         
@@ -259,13 +271,12 @@ class Population:
             return (graph,[])
 
         '''
-        Increase the PA by 1.17 for the selected influential agents (based on the gabrianeli paper)
+        Increase the PA by effect for the selected influential agents (based on the gabrianeli paper)
         '''
         for node in selected_nodes:
-            # 17%
             if debug:
                 print('Node #{} - old PA: {}'.format(node,graph.nodes[node]['PA']))
-            graph.nodes[node]['PA'] = graph.nodes[node]['PA']*1.17
+            graph.nodes[node]['PA'] = graph.nodes[node]['PA']*(1+effect)
             graph.nodes()[node]['PA_hist'] = [graph.nodes()[node]['PA']]
             if debug:
                 print('Node #{} - new PA: {}'.format(node,graph.nodes[node]['PA']))
@@ -1228,7 +1239,7 @@ class Population:
         return category
         
         
-class SocialFacilitationPopulation(Population):
+class PeerNominationSocialPopulation(Population):
     '''
         Population Class build on Social Facilitation Data.
     '''
@@ -1323,7 +1334,7 @@ class SocialFacilitationPopulation(Population):
             # eric approach : child(node[0])-succ;nominated(node[1])-pred;weight
             # thabo approach: child(node[0])-pred;nominated(node[1])-succ;weight
 
-            #An arrow (x, y) is considered to be directed from x to y; y is called the head and x is called the tail of the arrow; y is said to be a direct successor of x and x is said to be a direct predecessor of y.
+            # An arrow (x, y) is considered to be directed from x to y; y is called the head and x is called the tail of the arrow; y is said to be a direct successor of x and x is said to be a direct predecessor of y.
             
 
             # Create the edges in the graph
@@ -1345,11 +1356,12 @@ class SocialFacilitationPopulation(Population):
         #                 print('pred: '+ repr(pred)+' succ:'+repr(succ)+' weight:'+repr(weight))
 
             # POPULATE THE AGENTS
+            gender_dict, age_dict, class_dict = self.assign_basic()
+
             PA_dict = self.assign_PA(metric='steps')
             if(self.input_args['assign_PA_random']):
-                PA_dict = self.assign_PA_random(PA_dict)
+                PA_dict = self.assign_PA_random(PA_dict, gender_dict)
 
-            gender_dict, age_dict, class_dict = self.assign_basic()
             environment_dict = self.assign_environment()
             bmi_dict = self.assign_bmi()
 
@@ -1487,11 +1499,12 @@ class PeerNominatedDataPopulation(Population):
         #                 print('pred: '+ repr(pred)+' succ:'+repr(succ)+' weight:'+repr(weight))
 
             # POPULATE THE AGENTS
+            gender_dict, age_dict, class_dict = self.assign_basic()
+
             PA_dict = self.assign_PA(metric='steps')
             if(self.input_args['assign_PA_random']):
-                PA_dict = self.assign_PA_random(PA_dict)
+                PA_dict = self.assign_PA_random(PA_dict, gender_dict)
 
-            gender_dict, age_dict, class_dict = self.assign_basic()
             environment_dict = self.assign_environment()
             bmi_dict = self.assign_bmi()
 
@@ -1618,11 +1631,12 @@ class CommunicationDataPopulation(Population):
             df_connections_communication.to_csv('../output/communication_connections.csv')
 
             # POPULATE THE AGENTS
+            gender_dict, age_dict, class_dict = self.assign_basic()
+
             PA_dict = self.assign_PA(metric='steps')
             if (self.input_args['assign_PA_random']):
-                PA_dict = self.assign_PA_random(PA_dict)
+                PA_dict = self.assign_PA_random(PA_dict, gender_dict)
 
-            gender_dict, age_dict, class_dict = self.assign_basic()
             environment_dict = self.assign_environment()
             bmi_dict = self.assign_bmi()
 
